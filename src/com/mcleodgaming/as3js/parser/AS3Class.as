@@ -36,11 +36,13 @@ package com.mcleodgaming.as3js.parser
 		// Options
 		public var safeRequire:Boolean; //Try catch around parsed require statements
 		public var ignoreFlash:Boolean; //Ignore FL imports
+		public var supports:Object; //Specification of all extended syntax (ES6 etc)
 			
 		public function AS3Class(options:Object = null) 
 		{
 			options = options || { };
 			safeRequire = false;
+			supports = options.supports || { };
 			
 			if (typeof options.safeRequire !== 'undefined')
 			{
@@ -386,8 +388,8 @@ package com.mcleodgaming.as3js.parser
 				buffer += fn.name
 				buffer += " = function(";
 				//Concat all of the arguments together
-				tmpArr = [];
-				for (j = 0; j < fn.argList.length; j++)
+				var tmpArr = [];
+				for (var j = 0; j < fn.argList.length; j++)
 				{
 					if (!fn.argList[j].isRestParam)
 					{
@@ -524,6 +526,8 @@ package com.mcleodgaming.as3js.parser
 			var i:*;
 			var j:*;
 			var buffer:String = "";
+			var varOrConst:String = this.supports.const ?"const " :"var ";
+			var varOrLet:String = this.supports.let ?"let " :"var ";
 
 			if (requires.length > 0)
 			{
@@ -531,13 +535,13 @@ package com.mcleodgaming.as3js.parser
 				{
 					for (i in requires)
 					{
-						buffer += 'var ' + requires[i].substring(1, requires[i].length-1) + ' = (function () { try { return require(' + requires[i] + '); } catch(e) { return undefined; }})();\n';
+						buffer += varOrConst + requires[i].substring(1, requires[i].length-1) + ' = (function () { try { return require(' + requires[i] + '); } catch(e) { return undefined; }})();\n';
 					}
 				} else
 				{
 					for (i in requires)
 					{
-						buffer += 'var ' + requires[i].substring(1, requires[i].length-1) + ' = require(' + requires[i] + ');\n';
+						buffer += varOrConst + requires[i].substring(1, requires[i].length-1) + ' = require(' + requires[i] + ');\n';
 					}
 				}
 				buffer += "\n";
@@ -548,7 +552,7 @@ package com.mcleodgaming.as3js.parser
 			//Parent class must be imported if it exists
 			if (parentDefinition)
 			{
-				buffer += "var " + parentDefinition.className + " = module.import('" + parentDefinition.packageName + "', '" + parentDefinition.className + "');\n";
+				buffer += varOrConst + parentDefinition.className + " = module.import('" + parentDefinition.packageName + "', '" + parentDefinition.className + "');\n";
 			}
 
 			//Create refs for all the other classes
@@ -569,7 +573,7 @@ package com.mcleodgaming.as3js.parser
 				//Join up separated by commas
 				if (tmpArr.length > 0)
 				{
-					buffer += 'var ';
+					buffer += varOrLet;
 					buffer += tmpArr.join(", ") + ";\n";
 				}
 			}
@@ -604,7 +608,7 @@ package com.mcleodgaming.as3js.parser
 
 			buffer += '\n';
 			
-			buffer += (fieldMap[className]) ? "var " + stringifyFunc(fieldMap[className]) : "var " + className + " = function " + className + "() {};";
+			buffer += (fieldMap[className]) ? varOrConst + stringifyFunc(fieldMap[className]) : varOrConst + className + " = function " + className + "() {};";
 			
 			buffer += '\n';
 			

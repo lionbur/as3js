@@ -4,23 +4,64 @@ var beautify = require('js-beautify').js_beautify;
 global.AS3JS = require('./lib/as3.js');
 // Now Pull in the actual AS3JS program
 var AS3JS = require('./runtime.js');
+var path = require('path');
+var mkdirs = require('node-mkdirs');
 
 // Load the program
 var as3js = new AS3JS();
 
+var useStrict = true;
+var testCompiledPackages = false;
+
 // Execute the program 
-var sourceText = as3js.compile({
+var result = as3js.compile({
 	srcPaths: ['./src'],
 	silent: false,
 	verbose: false,
-	safeRequire: true,
+	safeRequire: !testCompiledPackages,
 	entry: 'com.mcleodgaming.as3js.Main',
-	entryMode: 'static'
-}).compiledSource;
+	entryMode: 'static',
+	supports: {
+		const: true,
+		let: true
+	}
+});
 
-// Output the resulting source code
-if (fs.existsSync('runtime-compiled.js'))
-{
-	fs.unlinkSync('runtime-compiled.js');
+function writeToSourceFile(filename, code) {
+	if (useStrict) {
+		code = "\"use strict\";\n\n" + code;
+	}
+	
+	mkdirs(path.dirname(filename));
+	return fs.writeFileSync(
+		filename,
+		beautify(code, { indent_size: 2, max_preserve_newlines: 2 }),
+		"UTF-8",
+		{flags: 'w+'}
+	);
 }
-fs.writeFileSync('runtime-compiled.js', beautify(sourceText, { indent_size: 2, max_preserve_newlines: 2 }), "UTF-8", {flags: 'w+'});
+
+if (testCompiledPackages)
+{
+	var packages = result.packageSources;
+	var outputPath = './compiled/';
+
+	for (var fullClassName in packages)
+	{
+		var filename = path.join(outputPath, fullClassName.replace(/\./g, "/") + ".js");
+
+		console.log("Writing Class " + fullClassName + " to " + filename);
+		if (fs.existsSync(filename)) {
+			fs.unlinkSync(filename);
+		}
+		writeToSourceFile(filename, packages[fullClassName]);
+	}
+} else {
+	var filename = "./compiled/runtime.js";
+	// Output the resulting source code
+	if (fs.existsSync(filename))
+	{
+		fs.unlinkSync(filename);
+	}
+	writeToSourceFile(filename, result.compiledSource);
+}

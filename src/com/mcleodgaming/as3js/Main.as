@@ -53,7 +53,11 @@ package com.mcleodgaming.as3js
 			options = options || {};
 			var srcPaths:Object = options.srcPaths || {};
 			var rawPackages:Array = options.rawPackages || [];
-			var parserOptions:Object = { safeRequire: options.safeRequire, ignoreFlash: options.ignoreFlash};
+			var parserOptions:Object = {
+				safeRequire: options.safeRequire,
+				ignoreFlash: options.ignoreFlash,
+				supports: options.supports
+			};
 			
 			//Temp classes for holding raw class info
 			var rawClass:AS3Class;

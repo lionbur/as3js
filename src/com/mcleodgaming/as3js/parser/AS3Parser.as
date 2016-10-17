@@ -29,6 +29,7 @@ package com.mcleodgaming.as3js.parser
 			parserOptions = { };
 			parserOptions.safeRequire = false;
 			parserOptions.ignoreFlash = false;
+			parserOptions.supports = { };
 		}
 		
 		public static function increaseIndent(str:String, indent:String):String
@@ -703,6 +704,7 @@ package com.mcleodgaming.as3js.parser
 			{
 				parserOptions.ignoreFlash = options.ignoreFlash;
 			}
+			parserOptions.supports = options.supports || { };
 			
 			var classDefinition:AS3Class = new AS3Class(parserOptions);
 			stack.splice(0, stack.length);

@@ -62,6 +62,8 @@ for(var i = 0; i < process.argv.length; i++) {
 			option = 'e'; //Entry point
 		} else if(arg == '--ignore-flash') {
 			ignoreFlash = true;
+		} else if(arg == '-sep' || arg == '--separateclasses') {
+			separateClasses =  true; //Each class in its own file
 		} else if(arg == '-h' || arg == '--help') {
 			//Help text
 			console.log("Options:");
@@ -69,6 +71,7 @@ for(var i = 0; i < process.argv.length; i++) {
 			console.log("\t[-src|-sourcepath]\tSource Path(s) (comma-separated)");
 			console.log("\t[-d|--dry]\tDry-run mode");
 			console.log("\t[-e|--entry]\t\tEntry point (ex. \"[instance|static]:com.example.MyClass\")");
+			console.log("\t[-sep|-separateclasses]\tEach class in its own file");
 			console.log("\t[-h|--help]\t\tView Help");
 			console.log("\t[-v|--version]\t\tView Version information");
 			console.log("\t[--verbose]\t\tVerbose console output");
@@ -110,5 +113,44 @@ if(srcPaths.length <= 0) {
 			fs.unlinkSync(output);
 		}
 		fs.writeFileSync(output || 'output.js', sourceText, "UTF-8", {flags: 'w+'});
+
+		var filesSkipped = 0;
+
+		if (separateClasses) {
+			var i = output.lastIndexOf('/');
+			var outputPath = i >= 0 ?output.substring(0, i+1) :'';
+
+			for (fullClassName in options.compiledClasses) {
+				var fullClassNameParts = fullClassName.split('.');
+				var filename = outputPath;
+				for (var i  = 0; i < fullClassNameParts.length-1; ++i) {
+					filename += fullClassNameParts[i] + '/';
+					if (!fs.existsSync(filename)) {
+						fs.mkdirSync(filename);
+					}
+				}
+				filename += fullClassNameParts[fullClassNameParts.length-1] + ".js";
+
+				var shouldWrite = true;
+				var compiled = options.compiledClasses[fullClassName];
+				if (fs.existsSync(filename)) {
+					var content = fs.readFileSync(filename, "UTF-8");
+					shouldWrite = (content !== compiled);
+					if (shouldWrite) {
+						fs.unlinkSync(filename);
+					} else {
+						++filesSkipped;
+					}
+				}
+				if (shouldWrite) {
+					console.log("Writing Class " + fullClassName + " to " + filename);
+					fs.writeFileSync(filename, compiled, "UTF-8", {flags: 'w+'});
+				}
+			}
+		}
+
+		if (filesSkipped) {
+			console.log(filesSkipped + " files were not changed.");
+		}
 	}
 }

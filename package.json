@@ -1,25 +1,30 @@
 {
-	"name": "as3js",
-	"version": "0.3.0",
-	"author": "Greg McLeod <cleod9@gmail.com>",
-	"description": "AS3 to JS converter.",
-	"bin": {
-		"as3js": "./bin/as3jsc.js"
-	},
-	"devDependencies": {
-		"js-beautify": "1.5.10"
-	},
-	"main": "./index.js",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/cleod9/as3js"
-	},
-	"keywords": [
-		"as3",
-		"js",
-		"converter",
-		"import",
-		"oop"
-	],
-	"license": "MIT"
+  "name": "as3js",
+  "version": "0.4.0",
+  "author": "Greg McLeod <cleod9@gmail.com>, Lion Burger <lionbur@gmail.com>",
+  "description": "AS3 to JS2015+ converter.",
+  "bin": {
+    "as3js": "./bin/as3jsc.js"
+  },
+  "devDependencies": {
+    "js-beautify": "1.5.10",
+    "node-mkdirs": "0.0.1"
+  },
+  "main": "./index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lionbur/as3js"
+  },
+  "keywords": [
+    "as3",
+    "js",
+    "converter",
+    "import",
+    "oop",
+    "es6",
+    "es7",
+    "flow",
+    "typescript"
+  ],
+  "license": "MIT"
 }
