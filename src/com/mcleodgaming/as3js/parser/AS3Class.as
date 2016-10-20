@@ -832,6 +832,13 @@ package com.mcleodgaming.as3js.parser
 				buffer += staticMembersText;
 				buffer += "\n";
 			}
+
+			if (!this.supports.import)
+			{
+				buffer += "\n\n";
+				buffer += "module.exports = " + className + ";\n";
+			}
+
 			if (!this.supports.ImportJS && (entry === packageName + "." + className)) {
 				buffer += className + "." + initClassFunctionName + "(); // Entry point module initializes all dependencies\n";
 			}
