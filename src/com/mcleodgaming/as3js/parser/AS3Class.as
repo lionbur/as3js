@@ -742,38 +742,63 @@ package com.mcleodgaming.as3js.parser
 			}		
 			buffer += "\n";
 			
+			var areMemberVariablesOutOfClass:Boolean = this.supports.class && !this.supports.memberVariables; 
+			var memberFunctionPrefix:String = this.supports.class
+				?"\t"
+				:className + ".prototype.";
+			var memberVariablePrefix:String = areMemberVariablesOutOfClass
+				?className + ".prototype."
+				:memberFunctionPrefix;
+			var memberVariablesText:String = areMemberVariablesOutOfClass ?"" :buffer;
+
 			for (i in getters)
 			{
-				buffer += className + ".prototype." + stringifyFunc(getters[i]);
+				buffer += memberPrefix + stringifyFunc(getters[i]);
 			}
 			for (i in setters)
 			{
-				buffer += className + ".prototype." + stringifyFunc(setters[i]);
+				buffer += memberPrefix + stringifyFunc(setters[i]);
 			}
 			for (i in members)
 			{
 				if (members[i].name === className)
 				{
-					continue;
+					if (this.supports.class)
+					{
+						members[i].name = "constructor";
+						if (this.supports.super && parentDefinition && !members[i].value.match(new RegExp("^\\{\\s*super\\(")))
+						{
+							members[i].value = members[i].value.replace(new RegExp("^\\{(\\s*)"), "{$1\tsuper ();\n");
+						}
+					} else
+					{
+						continue;
+					}
 				}
 				if (members[i] instanceof AS3Function || (AS3Class.nativeTypes.indexOf(members[i].type) >= 0 && members[i].value))
 				{
-					buffer += className + ".prototype." + stringifyFunc(members[i]); //Print functions immediately
+					if (members[i] instanceof AS3Function)
+					{
+						buffer += memberFunctionPrefix + stringifyFunc(members[i]); //Print functions immediately
+					}
+					else {
+						memberVariablesText += memberVariablePrefix + stringifyFunc(members[i]);
+					}
 				} else if (members[i].type === "Number" || members[i].type === "int" || members[i].type === "uint")
 				{
 					if (isNaN(parseInt(members[i].value)))
 					{
-						buffer += className + ".prototype." + members[i].name + ' = 0;\n';
+						memberVariablesText += memberVariablePrefix + members[i].name + ' = 0;\n';
 					} else
 					{
-						buffer += className + ".prototype." + stringifyFunc(members[i]);
+						memberVariablesText += memberVariablePrefix + stringifyFunc(members[i]);
 					}
 				} else if (members[i].type === "Boolean")
 				{
-					buffer += className + ".prototype." + members[i].name + ' = false;\n';
+					memberVariablesText += memberVariablePrefix + members[i].name + ' = false;\n';
 				} else
 				{
-					buffer += className + ".prototype." + members[i].name + ' = null;\n';
+					memberVariablesText += memberVariablePrefix + members[i].name + ' = null;\n';
 				}
 			}
 
@@ -784,6 +809,10 @@ package com.mcleodgaming.as3js.parser
 				buffer = buffer.substr(0, buffer.length - 2) + "\n"; //Strips the final comma out of the string
 			}
 
+			if (areMemberVariablesOutOfClass)
+			{
+				buffer += memberVariablesText;
+			}
 			if (!this.supports.ImportJS && (entry === packageName + "." + className)) {
 				buffer += className + "." + initClassFunctionName + "(); // Entry point module initializes all dependencies\n";
 			}
