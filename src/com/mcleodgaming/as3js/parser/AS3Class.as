@@ -388,8 +388,10 @@ package com.mcleodgaming.as3js.parser
 					buffer += fn.subType + subTypeSeparator;
 				}
 				//Print out the rest of the name and start the function definition
-				buffer += fn.name
-				buffer += " = function(";
+				var isNewSyntax = this.supports.class && (this.supports.static || !fn.isStatic);
+
+				buffer += fn.name;
+				buffer += isNewSyntax?" (" :" = function(";
 				//Concat all of the arguments together
 				var tmpArr = [];
 				for (var j = 0; j < fn.argList.length; j++)
@@ -401,7 +403,11 @@ package com.mcleodgaming.as3js.parser
 				}
 				buffer += tmpArr.join(", ") + ") ";
 				//Function definition is finally added
-				buffer += fn.value + ";\n";
+				buffer += fn.value;
+				if (!isNewSyntax) {
+					buffer += ";";
+				} 
+				buffer += "\n";
 			} else if (fn instanceof AS3Variable)
 			{
 				//Variables can be added immediately
