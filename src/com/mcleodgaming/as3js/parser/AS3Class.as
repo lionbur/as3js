@@ -377,6 +377,7 @@ package com.mcleodgaming.as3js.parser
 		}
 		public function stringifyFunc(fn:AS3Member):String
 		{
+			var subTypeSeparator:String = this.supports.accessors ?" " :"_";
 			var buffer:String = "";
 			if (fn instanceof AS3Function)
 			{
@@ -384,7 +385,7 @@ package com.mcleodgaming.as3js.parser
 				//Prepend sub-type if it exists
 				if (fn.subType)
 				{
-					buffer += fn.subType + '_';
+					buffer += fn.subType + subTypeSeparator;
 				}
 				//Print out the rest of the name and start the function definition
 				buffer += fn.name
