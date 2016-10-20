@@ -705,6 +705,7 @@ package com.mcleodgaming.as3js.parser
 				parserOptions.ignoreFlash = options.ignoreFlash;
 			}
 			parserOptions.supports = options.supports || { };
+			parserOptions.entry = options.entry;
 			
 			var classDefinition:AS3Class = new AS3Class(parserOptions);
 			stack.splice(0, stack.length);

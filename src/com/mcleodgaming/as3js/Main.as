@@ -56,7 +56,8 @@ package com.mcleodgaming.as3js
 			var parserOptions:Object = {
 				safeRequire: options.safeRequire,
 				ignoreFlash: options.ignoreFlash,
-				supports: options.supports
+				supports: options.supports,
+				entry: options.entry
 			};
 			
 			//Temp classes for holding raw class info
