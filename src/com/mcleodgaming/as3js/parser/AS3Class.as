@@ -689,11 +689,21 @@ package com.mcleodgaming.as3js.parser
 			
 			if (parent)
 			{
-				//Extend parent if necessary
-				buffer += className + ".prototype = Object.create(" + parent + ".prototype);";
+				if (this.supports.class) {
+					buffer += " extends " + parent;
+				} else
+				{
+					//Extend parent if necessary
+					buffer += className + ".prototype = Object.create(" + parent + ".prototype);";
+				}
 			}
 			
-			buffer += '\n\n';
+			if (this.supports.class) {
+				buffer += "\n{\n";
+			} else
+			{
+				buffer += "\n\n";
+			}
 			
 			if (staticMembers.length > 0)
 			{
@@ -767,7 +777,12 @@ package com.mcleodgaming.as3js.parser
 				}
 			}
 
-			buffer = buffer.substr(0, buffer.length - 2) + "\n"; //Strips the final comma out of the string
+			if (this.supports.class)
+			{
+				buffer += "}\n"; 
+			} else {
+				buffer = buffer.substr(0, buffer.length - 2) + "\n"; //Strips the final comma out of the string
+			}
 
 			if (!this.supports.ImportJS && (entry === packageName + "." + className)) {
 				buffer += className + "." + initClassFunctionName + "(); // Entry point module initializes all dependencies\n";
