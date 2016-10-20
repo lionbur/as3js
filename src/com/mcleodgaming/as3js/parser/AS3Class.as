@@ -542,22 +542,25 @@ package com.mcleodgaming.as3js.parser
 			var j:*;
 			var buffer:String = "";
 			var varOrConst:String = this.supports.const ?"const " :"var ";
+			var requireCall:String = this.safeRequire ?"safeRequire" :"require";
+			var requireTemplate = this.supports.import
+				?"import ${module} from ${path};\n"
+				:varOrConst + " ${module} = " + requireCall + "(${path});\n";
 			var varOrLet:String = this.supports.let ?"let " :"var ";
+
+			if (this.safeRequire) {
+				buffer += "function safeRequire(mod) { try { return require(mod); } catch(e) { return undefined; } }\n\n";
+			}
 
 			if (requires.length > 0)
 			{
-				if (safeRequire)
+				for (i in requires)
 				{
-					for (i in requires)
-					{
-						buffer += varOrConst + requires[i].substring(1, requires[i].length-1) + ' = (function () { try { return require(' + requires[i] + '); } catch(e) { return undefined; }})();\n';
-					}
-				} else
-				{
-					for (i in requires)
-					{
-						buffer += varOrConst + requires[i].substring(1, requires[i].length-1) + ' = require(' + requires[i] + ');\n';
-					}
+					var require:String = requires[i];
+
+					buffer += requireTemplate
+						.replace("${module}", require.substring(1, require.length-1))
+						.replace("${path}", require);
 				}
 				buffer += "\n";
 			}
@@ -567,7 +570,24 @@ package com.mcleodgaming.as3js.parser
 			//Parent class must be imported if it exists
 			if (parentDefinition)
 			{
-				buffer += varOrConst + parentDefinition.className + " = module.import('" + parentDefinition.packageName + "', '" + parentDefinition.className + "');\n";
+				var importParentTemplate = this.supports.import
+					?"import ${name} from \"${path}/${name}\";\n"
+					:this.supports.ImportJS
+						?varOrConst + "${module} = module.import('${path}', '${name}');\n"
+						:varOrConst + "${module} = " + requireCall + "(\"${path}/${name}\");\n";
+				var packagePath:String = this.supports.ImportJS
+					?parentDefinition.packageName
+					:packageNameToPath(parentDefinition.packageName);
+				
+				buffer += importParentTemplate
+						.replace("${module}", parentDefinition.className)
+						.replace("${path}", packagePath)
+						.replace(/\$\{name\}/g, parentDefinition.className);
+				
+				if (!this.supports.ImportJS)
+				{
+					injectedText += "if (" + parentDefinition.className + "." + initClassFunctionName + ") " + parentDefinition.className + " ." + initClassFunctionName + "();\n"
+				}
 			}
 
 			//Create refs for all the other classes
