@@ -572,7 +572,9 @@ package com.mcleodgaming.as3js.parser
 				buffer += "\n";
 			}
 		
+			var initClassFunctionName = "_initClass_";
 			var tmpArr:Array = null;
+			var injectedText = "";
 
 			//Parent class must be imported if it exists
 			if (parentDefinition)
@@ -613,14 +615,17 @@ package com.mcleodgaming.as3js.parser
 					}
 				}
 				//Join up separated by commas
-				if (tmpArr.length > 0)
+				if (!this.supports.import && (tmpArr.length > 0))
 				{
 					buffer += varOrLet;
 					buffer += tmpArr.join(", ") + ";\n";
 				}
 			}
-			//Check for injection function code
-			var injectedText = "";
+			var importTemplate = this.supports.import
+				?"import ${name} from \"${path}/${name}\";\n"
+				:this.supports.ImportJS
+					?"${module} = module.import('${path}', '${name}');\n"
+					:"${module} = " + requireCall + "(\"${path}/${name}\"); if(${name}." + initClassFunctionName + ") ${name}." + initClassFunctionName + "();\n";
 			for (i in imports)
 			{
 				if (!(ignoreFlash && imports[i].indexOf('flash.') >= 0) && packageName + '.' + className != imports[i] && !(parentDefinition && parentDefinition.packageName + '.' + parentDefinition.className == imports[i])) //Ignore flash imports and parent for injections
@@ -628,31 +633,59 @@ package com.mcleodgaming.as3js.parser
 					// Must be in the filtered map, otherwise no point in writing
 					if (classMapFiltered[packageMap[imports[i]].className])
 					{
-						injectedText += "\t" + imports[i].substr(imports[i].lastIndexOf('.') + 1) + " = module.import('" + packageMap[imports[i]].packageName + "', '" + packageMap[imports[i]].className + "');\n";
+						var packagePath:String = this.supports.ImportJS
+							?packageMap[imports[i]].packageName
+							:packageNameToPath(packageMap[imports[i]].packageName);
+
+						injectedText += importTemplate
+								.replace("${module}", imports[i].substr(imports[i].lastIndexOf('.') + 1))
+								.replace("${path}", packagePath)
+								.replace(/\$\{name\}/g, packageMap[imports[i]].className);
 					}
 				}
 			}
-			//Set the non-native statics vars now
-			for (i in staticMembers)
+			if (!this.supports.class || !this.supports.static)
 			{
-				if (!(staticMembers[i] instanceof AS3Function))
+				//Set the non-native statics vars now
+				for (i in staticMembers)
 				{
-					injectedText += "\t" + AS3Parser.cleanup( className + '.' + staticMembers[i].name + ' = ' + staticMembers[i].value + ";\n");
-				}
+					if (!(staticMembers[i] instanceof AS3Function))
+					{
+						injectedText += "\t" + AS3Parser.cleanup( className + '.' + staticMembers[i].name + ' = ' + staticMembers[i].value + ";\n");
+					}
+				}				
 			}
 			
 			if (injectedText.length > 0)
 			{
-				buffer += "module.inject = function () {\n";
-				buffer += injectedText;
-				buffer += "};\n";
+				if (this.supports.ImportJS) {
+					buffer += "module.inject = function ()\n";
+					buffer += "{\n" + injectedText + "};\n";
+				} else {
+					injectedText = "delete " + className + "." + initClassFunctionName + ";\n" + injectedText;
+
+					var initClassFunc:AS3Function = new AS3Function();
+					initClassFunc.isStatic = true;
+					initClassFunc.name = initClassFunctionName;
+					initClassFunc.value = "{\n" + injectedText + "}";
+					staticMembers.push(initClassFunc);
+				}
 			}
 
 			buffer += '\n';
 			
-			buffer += (fieldMap[className]) ? varOrConst + stringifyFunc(fieldMap[className]) : varOrConst + className + " = function " + className + "() {};";
+			if (this.supports.import) {
+				buffer += "export default ";
+			}
+			if (this.supports.class) {
+				buffer += "class " + className;
+			} else {
+				buffer += (fieldMap[className]) 
+					? varOrConst + stringifyFunc(fieldMap[className])
+					: varOrConst + className + " = function " + className + "() {};";
 			
-			buffer += '\n';
+				buffer += '\n';
+			}
 			
 			if (parent)
 			{
@@ -736,8 +769,9 @@ package com.mcleodgaming.as3js.parser
 
 			buffer = buffer.substr(0, buffer.length - 2) + "\n"; //Strips the final comma out of the string
 
-			buffer += "\n\n";
-			buffer += "module.exports = " + className + ";\n";
+			if (!this.supports.ImportJS && (entry === packageName + "." + className)) {
+				buffer += className + "." + initClassFunctionName + "(); // Entry point module initializes all dependencies\n";
+			}
 
 			//Remaining fixes
 			buffer = buffer.replace(/(this\.)+/g, "this.");
