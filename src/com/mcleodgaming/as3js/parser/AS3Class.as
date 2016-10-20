@@ -3,7 +3,9 @@ package com.mcleodgaming.as3js.parser
 	import com.mcleodgaming.as3js.Main;
 	import com.mcleodgaming.as3js.enums.*;
 	import com.mcleodgaming.as3js.types.*;
-	
+
+	require "path"
+
 	public class AS3Class 
 	{
 		public static var reservedWords:Array = ["as", "class", "delete", "false", "if", "instanceof", "native", "private", "super", "to", "use", "with", "break", "const", "do", "finally", "implements", "new", "protected", "switch", "true", "var", "case", "continue", "else", "for", "import", "internal", "null", "public", "this", "try", "void", "catch", "default", "extends", "function", "in", "is", "package", "return", "throw", "typeof", "while", "each", "get", "set", "namespace", "include", "dynamic", "final", "natiev", "override", "static", "abstract", "char", "export", "long", "throws", "virtual", "boolean", "debugger", "float", "prototype", "to", "volatile", "byte", "double", "goto", "short", "transient", "cast", "enum", "intrinsic", "synchronized", "type"];
@@ -519,6 +521,19 @@ package com.mcleodgaming.as3js.parser
 				allStaticFuncs[i].value = AS3Parser.checkArguments(allStaticFuncs[i]);
 				allStaticFuncs[i].value = AS3Parser.cleanup(allStaticFuncs[i].value);
 			}
+		}
+		private function packageNameToPath(pkg:String):String {
+			var ownPath = packageName.replace(/\./g, "/");
+			var thatPath = pkg.replace(/\./g, "/");
+
+			var result = path.relative(ownPath, thatPath).replace(/\\/g, "/");
+
+			if (/^\./.test(result)) {
+				return result;
+			}
+			return result.length
+				?"./" + result
+				:".";
 		}
 		public function toString():String
 		{
