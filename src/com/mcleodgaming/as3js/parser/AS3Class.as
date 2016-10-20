@@ -39,12 +39,14 @@ package com.mcleodgaming.as3js.parser
 		public var safeRequire:Boolean; //Try catch around parsed require statements
 		public var ignoreFlash:Boolean; //Ignore FL imports
 		public var supports:Object; //Specification of all extended syntax (ES6 etc)
+		public var entry:String; //Entry module initializes all dependencies automatically
 			
 		public function AS3Class(options:Object = null) 
 		{
 			options = options || { };
 			safeRequire = false;
 			supports = options.supports || { };
+			entry = options.entry;
 			
 			if (typeof options.safeRequire !== 'undefined')
 			{
