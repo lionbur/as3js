@@ -408,7 +408,12 @@ package com.mcleodgaming.as3js.parser
 				{
 					if (!fn.argList[j].isRestParam)
 					{
-						tmpArr.push(fn.argList[j].name + stringifyType(fn.argList[j]));
+						var argument = fn.argList[j].name + stringifyType(fn.argList[j]);
+						if (this.supports.defaultParameters)
+						{
+							argument += " = " + fn.argList[j].value;
+						}
+						tmpArr.push(argument);
 					}
 				}
 				buffer += tmpArr.join(", ") + ")" + stringifyType(fn) + " ";
@@ -519,7 +524,7 @@ package com.mcleodgaming.as3js.parser
 			{
 				Main.debug("Now parsing function: " + className + ":" + allFuncs[i].name);
 				allFuncs[i].value = AS3Parser.parseFunc(this, allFuncs[i].value, allFuncs[i].buildLocalVariableStack(), allFuncs[i].isStatic)[0];
-				allFuncs[i].value = AS3Parser.checkArguments(allFuncs[i]);
+				allFuncs[i].value = AS3Parser.checkArguments(allFuncs[i], this);
 				if (allFuncs[i].name === className)
 				{
 					//Inject instantiations here
@@ -538,7 +543,7 @@ package com.mcleodgaming.as3js.parser
 			{
 				Main.debug("Now parsing static function: " + className + ":" + allStaticFuncs[i].name);
 				allStaticFuncs[i].value = AS3Parser.parseFunc(this, allStaticFuncs[i].value, allStaticFuncs[i].buildLocalVariableStack(), allStaticFuncs[i].isStatic)[0];
-				allStaticFuncs[i].value = AS3Parser.checkArguments(allStaticFuncs[i]);
+				allStaticFuncs[i].value = AS3Parser.checkArguments(allStaticFuncs[i], this);
 				allStaticFuncs[i].value = AS3Parser.cleanup(allStaticFuncs[i].value, this);
 			}
 		}

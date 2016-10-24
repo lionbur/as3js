@@ -89,6 +89,7 @@ var testCases = [
 				import: true,
 				memberVariables: true,
 				flowTypes: true,
+				defaultParameters: true,
 			}
 		}
 	},

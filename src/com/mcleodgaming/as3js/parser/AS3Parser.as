@@ -720,7 +720,7 @@ package com.mcleodgaming.as3js.parser
 			return classDefinition;
 		}
 		
-		public static function checkArguments(fn:AS3Function):String
+		public static function checkArguments(fn:AS3Function, parserOptions):String
 		{
 			if (fn.argList.length <= 0)
 			{
@@ -734,7 +734,7 @@ package com.mcleodgaming.as3js.parser
 				if (fn.argList[i].isRestParam)
 				{
 					args += "\n\t\t\tvar " + fn.argList[i].name + " = Array.prototype.slice.call(arguments).splice(" + i + ");";
-				} else if (fn.argList[i].value)
+				} else if (fn.argList[i].value && !parserOptions.supports.defaultParameters)
 				{
 					args += "\n\t\t\t" + fn.argList[i].name + " = AS3JS.Utils.getDefaultValue(" + fn.argList[i].name + ", " + fn.argList[i].value + ");";
 				}
