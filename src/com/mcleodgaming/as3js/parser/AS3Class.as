@@ -765,7 +765,7 @@ package com.mcleodgaming.as3js.parser
 			var memberVariablePrefix:String = areMemberVariablesOutOfClass
 				?className + ".prototype."
 				:memberFunctionPrefix;
-			var memberVariablesText:String = areMemberVariablesOutOfClass ?"" :buffer;
+			var memberVariablesText:String = "";
 
 			for (i in getters)
 			{
@@ -815,6 +815,12 @@ package com.mcleodgaming.as3js.parser
 				} else
 				{
 					memberVariablesText += memberVariablePrefix + members[i].name + ' = null;\n';
+				}
+
+				if (!areMemberVariablesOutOfClass)
+				{
+					buffer += memberVariablesText;
+					memberVariablesText = "";			
 				}
 			}
 
