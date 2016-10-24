@@ -1,7 +1,5 @@
 var fs = require('fs');
 var beautify = require('js-beautify').js_beautify;
-// Pull in loader library first
-global.AS3JS = require('./lib/as3.js');
 // Now Pull in the actual AS3JS program
 //var AS3JS = require('./compiled/com/mcleodgaming/as3js/Main');
 var path = require('path');
@@ -13,6 +11,7 @@ var testCompiledPackages = false;
 
 var testCases = [
 	{
+		useAS3JS: true,
 		runtime: "./runtime.js",
 		bundle: "./compiled/es2015/using-importjs/bundle.js",
 		options: {
@@ -31,6 +30,7 @@ var testCases = [
 		}
 	},
 	{
+		useAS3JS: true,
 		runtime: "./compiled/es2015/using-importjs/bundle.js",
 		outputPath: "./compiled/es2015/using-require/",
 		options: {
@@ -46,6 +46,8 @@ var testCases = [
 				accessors: true,
 				class: true,
 				super: true,
+				defaultParameters: true,
+				restParameter: true,
 			}
 		}
 	},
@@ -66,6 +68,8 @@ var testCases = [
 				class: true,
 				super: true,
 				import: true,
+				defaultParameters: true,
+				restParameter: true,
 			}
 		}
 	},
@@ -151,6 +155,15 @@ function writeToSourceFile(testCase, filename, code) {
 for (var testCase of testCases) {
 	if (testCase.babelRegisterOptions) {
 		require("babel-register")(testCase.babelRegisterOptions);
+	}
+
+	// Pull in loader library first
+	if (testCase.useAS3JS)
+	{
+		global.AS3JS = require('./lib/as3.js');
+	} else
+	{
+		delete global.AS3JS;
 	}
 
 	var runtime = require(testCase.runtime);

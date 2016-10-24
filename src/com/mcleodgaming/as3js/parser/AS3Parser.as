@@ -1151,6 +1151,7 @@ package com.mcleodgaming.as3js.parser
 			var type:String;
 			var params:Array;
 			var val:String;
+			var NEW_ARRAY:String = "new A" + "rray";
 			var matches:Array = text.match(AS3Pattern.VECTOR[0]);
 			//For each Vector.<>() found in the text
 			for (i in matches)
@@ -1172,7 +1173,13 @@ package com.mcleodgaming.as3js.parser
 				//Replace accordingly
 				if (params.length > 0 && params[0].trim() != '')
 				{
-					text = text.replace(AS3Pattern.VECTOR[1], "AS3JS.Utils.createArray(" + params[0] + ", " + val + ")");
+			        if (parserOptions.supports.ImportJS)
+        			{
+						text = text.replace(AS3Pattern.VECTOR[1], "AS3JS.Utils.createArray(" + params[0] + ", " + val + ")");
+        			} else
+        			{
+						text = text.replace(AS3Pattern.VECTOR[1], "(new A" + "rray(" + params[0] + ")).fill(" + val + ")");
+					}
 				} else
 				{
 					text = text.replace(AS3Pattern.VECTOR[1], "[]");
@@ -1187,7 +1194,13 @@ package com.mcleodgaming.as3js.parser
 				//Replace accordingly
 				if (params.length > 0 && params[0].trim() != '')
 				{
-					text = text.replace(AS3Pattern.ARRAY[1], "AS3JS.Utils.createArray(" + params[0] + ", null)");
+			        if (parserOptions.supports.ImportJS)
+        			{
+						text = text.replace(AS3Pattern.ARRAY[1], "AS3JS.Utils.createArray(" + params[0] + ", null)");
+					} else
+					{
+						text = text.replace(AS3Pattern.VECTOR[1], "new A" + "rray(" + params[0] + ")");
+					}
 				} else
 				{
 					text = text.replace(AS3Pattern.ARRAY[1], "[]");

@@ -173,7 +173,7 @@ package com.mcleodgaming.as3js
 				classes[i].process(classes);
 			}
 			// Load stringified versions of snippets/main-snippet.js and snippets/class-snippet.js
-			var mainTemplate:String = "(function(){var Program={};{{packages}}if(typeof module !== 'undefined'){module.exports=AS3JS.load({program:Program,entry:\"{{entryPoint}}\",entryMode:\"{{entryMode}}\"});}else if(typeof window!=='undefined'&&typeof AS3JS!=='undefined'){window['{{entryPoint}}']=AS3JS.load({program:Program,entry:\"{{entryPoint}}\",entryMode:\"{{entryMode}}\"});}})();";
+			var mainTemplate:String = "(function(){var Program={};{{packages}}if(typeof AS3JS==='undefined'){module.exports=Program[\"{{entryPoint}}\"];}else if(typeof module !== 'undefined'){module.exports=AS3JS.load({program:Program,entry:\"{{entryPoint}}\",entryMode:\"{{entryMode}}\"});}else if(typeof window!=='undefined'&&typeof AS3JS!=='undefined'){window['{{entryPoint}}']=AS3JS.load({program:Program,entry:\"{{entryPoint}}\",entryMode:\"{{entryMode}}\"});}})();";
 			var classTemplate:String = "Program[\"{{module}}\"]=function(module, exports){{{source}}};";
 			var packageObjects:Array = [];
 			var classObjects:Array = null;
