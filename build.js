@@ -7,7 +7,6 @@ global.AS3JS = require('./lib/as3.js');
 var path = require('path');
 var mkdirs = require('node-mkdirs');
 
-var useStrict = true;
 var testCompiledPackages = false;
 
 var testCases = [
