@@ -414,13 +414,22 @@ package com.mcleodgaming.as3js.parser
 						{
 							argument += " = " + fn.argList[j].value;
 						}
-						
+
 						tmpArr.push(argument);
 					}
 				}
 				buffer += tmpArr.join(", ") + ")" + stringifyType(fn) + " ";
 				//Function definition is finally added
-				buffer += fn.value;
+			    //Optional support for let keyword
+			    if (this.supports.let)
+			    {
+//			     	console.log(fn.value.replace(/var(\s*)/g, "let$1"));
+			     	buffer += fn.value.replace(/var(\s+)/g, "let$1");
+//					buffer += fn.value;
+			    } else
+			    {
+					buffer += fn.value;
+				}
 				if (!isNewSyntax) {
 					buffer += ";";
 				} 
