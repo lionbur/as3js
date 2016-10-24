@@ -377,6 +377,14 @@ package com.mcleodgaming.as3js.parser
 				}
 			}
 		}
+		private function stringifyType(member:AS3Member):String
+		{
+			if (!this.supports.flowTypes || (member.type === "*"))
+			{
+				return "";
+			}
+			return ":" + member.type.replace(/Vector[\S\s]*/, "TypedArray");
+		}
 		public function stringifyFunc(fn:AS3Member):String
 		{
 			var subTypeSeparator:String = this.supports.accessors ?" " :"_";
@@ -400,10 +408,10 @@ package com.mcleodgaming.as3js.parser
 				{
 					if (!fn.argList[j].isRestParam)
 					{
-						tmpArr.push(fn.argList[j].name);
+						tmpArr.push(fn.argList[j].name + stringifyType(fn.argList[j]));
 					}
 				}
-				buffer += tmpArr.join(", ") + ") ";
+				buffer += tmpArr.join(", ") + ")" + stringifyType(fn) + " ";
 				//Function definition is finally added
 				buffer += fn.value;
 				if (!isNewSyntax) {
@@ -413,7 +421,7 @@ package com.mcleodgaming.as3js.parser
 			} else if (fn instanceof AS3Variable)
 			{
 				//Variables can be added immediately
-				buffer += fn.name;
+				buffer += fn.name + stringifyType(fn);
 				buffer += " = " + fn.value + ";\n";
 			}
 			return buffer;
@@ -517,7 +525,7 @@ package com.mcleodgaming.as3js.parser
 					//Inject instantiations here
 					allFuncs[i].value = AS3Parser.injectInstantiations(this, allFuncs[i]);
 				}
-				allFuncs[i].value = AS3Parser.cleanup(allFuncs[i].value);
+				allFuncs[i].value = AS3Parser.cleanup(allFuncs[i].value, this);
 				//Fix supers
 				if (!this.supports.super)
 				{
@@ -531,7 +539,7 @@ package com.mcleodgaming.as3js.parser
 				Main.debug("Now parsing static function: " + className + ":" + allStaticFuncs[i].name);
 				allStaticFuncs[i].value = AS3Parser.parseFunc(this, allStaticFuncs[i].value, allStaticFuncs[i].buildLocalVariableStack(), allStaticFuncs[i].isStatic)[0];
 				allStaticFuncs[i].value = AS3Parser.checkArguments(allStaticFuncs[i]);
-				allStaticFuncs[i].value = AS3Parser.cleanup(allStaticFuncs[i].value);
+				allStaticFuncs[i].value = AS3Parser.cleanup(allStaticFuncs[i].value, this);
 			}
 		}
 		private function packageNameToPath(pkg:String):String {
@@ -658,7 +666,7 @@ package com.mcleodgaming.as3js.parser
 				{
 					if (!(staticMembers[i] instanceof AS3Function))
 					{
-						injectedText += "\t" + AS3Parser.cleanup( className + '.' + staticMembers[i].name + ' = ' + staticMembers[i].value + ";\n");
+						injectedText += "\t" + AS3Parser.cleanup( className + '.' + staticMembers[i].name + stringifyType(staticMembers[i]) + ' = ' + staticMembers[i].value + ";\n", this);
 					}
 				}				
 			}
@@ -674,6 +682,7 @@ package com.mcleodgaming.as3js.parser
 					var initClassFunc:AS3Function = new AS3Function();
 					initClassFunc.isStatic = true;
 					initClassFunc.name = initClassFunctionName;
+					initClassFunc.type = "void";
 					initClassFunc.value = "{\n" + injectedText + "}";
 					staticMembers.push(initClassFunc);
 				}
@@ -729,17 +738,17 @@ package com.mcleodgaming.as3js.parser
 					{
 						if (isNaN(parseInt(staticMembers[i].value)))
 						{
-							staticMembersText += className + "." + staticMembers[i].name + ' = 0;\n';
+							staticMembersText += className + "." + staticMembers[i].name + stringifyType(staticMembers[i]) + ' = 0;\n';
 						} else
 						{
 							staticMembersText += className + "." + stringifyFunc(staticMembers[i]);
 						}
 					} else if (staticMembers[i].type === "Boolean")
 					{
-						staticMembersText += className + "." + staticMembers[i].name + ' = false;\n';
+						staticMembersText += className + "." + staticMembers[i].name + stringifyType(staticMembers[i]) + ' = false;\n';
 					} else
 					{
-						staticMembersText += className + "." +  staticMembers[i].name + ' = null;\n';
+						staticMembersText += className + "." +  staticMembers[i].name + stringifyType(staticMembers[i]) + ' = null;\n';
 					}
 				}
 				for (i in staticGetters)

@@ -1145,7 +1145,7 @@ package com.mcleodgaming.as3js.parser
 			}
 			return [result, index];
 		}
-		public static function cleanup(text:String):String
+		public static function cleanup(text:String, parserOptions:Object = {}):String
 		{
 			var i:int;
 			var type:String;
@@ -1196,7 +1196,13 @@ package com.mcleodgaming.as3js.parser
 			//Take care of function binding
 			
 			//Now cleanup variable types
-			text = text.replace(/([^0-9a-zA-Z_$.])var(\s*[a-zA-Z_$*][0-9a-zA-Z_$.<>]*)\s*:\s*([a-zA-Z_$*][0-9a-zA-Z_$.<>]*)/g, "$1var$2");
+			if (parserOptions.supports.flowTypes)
+			{
+				text = text.replace(/Vector([0-9a-zA-Z_$.<>]*)/g, "TypedArray");
+			} else
+			{
+				text = text.replace(/([^0-9a-zA-Z_$.])var(\s*[a-zA-Z_$*][0-9a-zA-Z_$.<>]*)\s*:\s*([a-zA-Z_$*][0-9a-zA-Z_$.<>]*)/g, "$1var$2");
+			}
 			
 			return text;
 		}

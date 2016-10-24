@@ -88,6 +88,7 @@ var testCases = [
 				static: true,
 				import: true,
 				memberVariables: true,
+				flowTypes: true,
 			}
 		}
 	},
@@ -101,7 +102,8 @@ var testCases = [
 				"es2015",
 			],
 			plugins: [
-				"transform-class-properties"
+				"transform-class-properties",
+				"transform-flow-strip-types"
 			]
 		},
 		options: {
