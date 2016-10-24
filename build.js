@@ -104,7 +104,6 @@ var testCases = [
 		babelRegisterOptions: {
 			only: /es-next/,
 			presets: [
-//				"stage-0",
 				"es2015",
 			],
 			plugins: [

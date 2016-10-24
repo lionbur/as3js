@@ -423,9 +423,7 @@ package com.mcleodgaming.as3js.parser
 			    //Optional support for let keyword
 			    if (this.supports.let)
 			    {
-//			     	console.log(fn.value.replace(/var(\s*)/g, "let$1"));
 			     	buffer += fn.value.replace(/var(\s+)/g, "let$1");
-//					buffer += fn.value;
 			    } else
 			    {
 					buffer += fn.value;
