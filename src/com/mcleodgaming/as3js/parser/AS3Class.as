@@ -575,12 +575,12 @@ package com.mcleodgaming.as3js.parser
 			var i:*;
 			var j:*;
 			var buffer:String = "";
-			var varOrConst:String = this.supports.const ?"const " :"var ";
+			var varOrConst:String = this.supports.const ?"const " :"v"+"ar ";
 			var requireCall:String = this.safeRequire ?"safeRequire" :"require";
 			var requireTemplate = this.supports.import
 				?"import ${module} from ${path};\n"
 				:varOrConst + " ${module} = " + requireCall + "(${path});\n";
-			var varOrLet:String = this.supports.let ?"let " :"var ";
+			var varOrLet:String = this.supports.let ?"let " :"v"+"ar ";
 
 			if (this.safeRequire) {
 				buffer += "function safeRequire(mod) { try { return require(mod); } catch(e) { return undefined; } }\n\n";
