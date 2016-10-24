@@ -7,12 +7,14 @@ global.AS3JS = require('./lib/as3.js');
 var path = require('path');
 var mkdirs = require('node-mkdirs');
 
+var babel = require("babel-core");
+
 var testCompiledPackages = false;
 
 var testCases = [
 	{
 		runtime: "./runtime.js",
-		bundle: "./compiled/runtime.js",
+		bundle: "./compiled/es2015/using-importjs/bundle.js",
 		options: {
 			srcPaths: ['./src'],
 			silent: false,
@@ -29,8 +31,8 @@ var testCases = [
 		}
 	},
 	{
-		runtime: "./compiled/runtime.js",
-		outputPath: "./compiled/",
+		runtime: "./compiled/es2015/using-importjs/bundle.js",
+		outputPath: "./compiled/es2015/using-require/",
 		options: {
 			srcPaths: ['./src'],
 			silent: false,
@@ -44,14 +46,12 @@ var testCases = [
 				accessors: true,
 				class: true,
 				super: true,
-//				static: true,
-				ImportJS: false
 			}
 		}
 	},
 	{
-		runtime: "./compiled/com/mcleodgaming/as3js/Main",
-		bundle: "./compiled/rebundled.js",
+		runtime: "./compiled/es2015/using-require/com/mcleodgaming/as3js/Main",
+		outputPath: "./compiled/es2015/using-import/",
 		options: {
 			srcPaths: ['./src'],
 			silent: false,
@@ -60,17 +60,66 @@ var testCases = [
 			entry: 'com.mcleodgaming.as3js.Main',
 			entryMode: 'static',
 			supports: {
-//				const: true,
-//				let: true,
-//				accessors: true,
+				const: true,
+				let: true,
+				accessors: true,
+				class: true,
+				super: true,
+				import: true,
+			}
+		}
+	},
+	{
+		runtime: "./compiled/es2015/using-require/com/mcleodgaming/as3js/Main",
+		outputPath: "./compiled/es-next/using-import/",
+		options: {
+			srcPaths: ['./src'],
+			silent: false,
+			verbose: false,
+			safeRequire: false,
+			entry: 'com.mcleodgaming.as3js.Main',
+			entryMode: 'static',
+			supports: {
+				const: true,
+				let: true,
+				accessors: true,
+				class: true,
+				super: true,
+				static: true,
+				import: true,
+				memberVariables: true,
+			}
+		}
+	},
+	{
+		runtime: "./compiled/es-next/using-import/com/mcleodgaming/as3js/Main",
+		bundle: "./compiled/es2009/using-importjs/bundle.js",
+		babelRegisterOptions: {
+			only: /es-next/,
+			presets: [
+//				"stage-0",
+				"es2015",
+			],
+			plugins: [
+				"transform-class-properties"
+			]
+		},
+		options: {
+			srcPaths: ['./src'],
+			silent: false,
+			verbose: false,
+			safeRequire: false,
+			entry: 'com.mcleodgaming.as3js.Main',
+			entryMode: 'static',
+			supports: {
 				ImportJS: true
 			}
 		}
 	},
 ];
 
-function writeToSourceFile(filename, code) {
-	if (useStrict) {
+function writeToSourceFile(testCase, filename, code) {
+	if (testCase.useStrict) {
 		code = "\"use strict\";\n\n" + code;
 	}
 	
@@ -79,35 +128,48 @@ function writeToSourceFile(filename, code) {
 	if (fs.existsSync(filename)) {
 		fs.unlinkSync(filename);
 	}
+
+	if (testCase.babelOptions)
+	{
+		var result = babel.transform(code, testCase.babelOptions);
+		code = result.code;
+	}
+	code = beautify(code, { indent_size: 2, max_preserve_newlines: 2 });
+
 	fs.writeFileSync(
 		filename,
-		beautify(code, { indent_size: 2, max_preserve_newlines: 2 }),
+		code,
 		"UTF-8",
 		{flags: 'w+'}
 	);
 }
 
 for (var testCase of testCases) {
-var AS3JS = require(testCase.runtime);
-// Load the program
-var as3js = new AS3JS();
-
-// Execute the program 
-var result = as3js.compile(testCase.options);
-
-if (testCase.bundle)
-{
-	// Output the resulting source code
-	console.log("Bundling " + Object.keys(result.packageSources).length + " packages to " + testCase.bundle);
-	writeToSourceFile(testCase.bundle, result.compiledSource);
-} else {
-	for (var fullClassName in result.packageSources)
-	{
-		var filename = path.join(testCase.outputPath, fullClassName.replace(/\./g, "/") + ".js");
-
-		console.log("Writing Class " + fullClassName + " to " + filename);
-		writeToSourceFile(filename, result.packageSources[fullClassName]);
+	if (testCase.babelRegisterOptions) {
+		require("babel-register")(testCase.babelRegisterOptions);
 	}
-}
 
+	var runtime = require(testCase.runtime);
+	// Load the program
+	var as3js = testCase.babelRegisterOptions
+		?new runtime.default()
+		:new runtime();
+
+	// Execute the program 
+	var result = as3js.compile(testCase.options);
+
+	if (testCase.bundle)
+	{
+		// Output the resulting source code
+		console.log("Bundling " + Object.keys(result.packageSources).length + " packages to " + testCase.bundle);
+		writeToSourceFile(testCase, testCase.bundle, result.compiledSource);
+	} else {
+		for (var fullClassName in result.packageSources)
+		{
+			var filename = path.join(testCase.outputPath, fullClassName.replace(/\./g, "/") + ".js");
+
+			console.log("Writing Class " + fullClassName + " to " + filename);
+			writeToSourceFile(testCase, filename, result.packageSources[fullClassName]);
+		}
+	}
 }
