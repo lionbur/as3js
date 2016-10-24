@@ -90,6 +90,7 @@ var testCases = [
 				memberVariables: true,
 				flowTypes: true,
 				defaultParameters: true,
+				restParameter: true,
 			}
 		}
 	},

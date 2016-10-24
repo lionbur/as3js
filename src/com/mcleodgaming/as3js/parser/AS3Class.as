@@ -408,11 +408,13 @@ package com.mcleodgaming.as3js.parser
 				{
 					if (!fn.argList[j].isRestParam)
 					{
-						var argument = fn.argList[j].name + stringifyType(fn.argList[j]);
+						var argument = (this.supports.restParameter && fn.argList[j].isRestParam) ?"..." :"";
+						argument += fn.argList[j].name + stringifyType(fn.argList[j]);
 						if (this.supports.defaultParameters)
 						{
 							argument += " = " + fn.argList[j].value;
 						}
+						
 						tmpArr.push(argument);
 					}
 				}

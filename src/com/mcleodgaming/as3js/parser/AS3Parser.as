@@ -731,7 +731,7 @@ package com.mcleodgaming.as3js.parser
 			for (var i:int = 0; i < fn.argList.length; i++)
 			{
 				//We will inject arguments into the top of the method definition
-				if (fn.argList[i].isRestParam)
+				if (fn.argList[i].isRestParam && !parserOptions.supports.restParameter)
 				{
 					args += "\n\t\t\tvar " + fn.argList[i].name + " = Array.prototype.slice.call(arguments).splice(" + i + ");";
 				} else if (fn.argList[i].value && !parserOptions.supports.defaultParameters)

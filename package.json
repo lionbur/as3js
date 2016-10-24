@@ -1,6 +1,6 @@
 {
   "name": "as3js",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "author": "Greg McLeod <cleod9@gmail.com>, Lion Burger <lionbur@gmail.com>",
   "description": "AS3 to ES2015 and Typescript converter.",
   "bin": {
