@@ -620,17 +620,18 @@ package com.mcleodgaming.as3js.parser
 					}
 				}
 				//Join up separated by commas
-				if (!this.supports.import && (tmpArr.length > 0))
+				if (tmpArr.length > 0)
 				{
 					buffer += varOrLet;
 					buffer += tmpArr.join(", ") + ";\n";
 				}
 			}
 			var importTemplate = this.supports.import
-				?"import ${name} from \"${path}/${name}\";\n"
+				?"${module} = " + requireCall + "(\"${path}/${name}\").default; if(${name}." + initClassFunctionName + ") ${name}." + initClassFunctionName + "();\n"
 				:this.supports.ImportJS
 					?"${module} = module.import('${path}', '${name}');\n"
 					:"${module} = " + requireCall + "(\"${path}/${name}\"); if(${name}." + initClassFunctionName + ") ${name}." + initClassFunctionName + "();\n";
+
 			for (i in imports)
 			{
 				if (!(ignoreFlash && imports[i].indexOf('flash.') >= 0) && packageName + '.' + className != imports[i] && !(parentDefinition && parentDefinition.packageName + '.' + parentDefinition.className == imports[i])) //Ignore flash imports and parent for injections
@@ -649,6 +650,7 @@ package com.mcleodgaming.as3js.parser
 					}
 				}
 			}
+
 			if (!this.supports.class || !this.supports.static)
 			{
 				//Set the non-native statics vars now
