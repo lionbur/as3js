@@ -86,7 +86,7 @@ module.exports = function build(buildOptions)
 		// Pull in loader library first
 		if (buildOptions.useAS3JS)
 		{
-			global.AS3JS = require('./lib/as3.js');
+			global.AS3JS = require('./as3.js');
 		} else
 		{
 			delete global.AS3JS;
