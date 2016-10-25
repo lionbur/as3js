@@ -11,7 +11,7 @@
   },
   "dependencies" : {
     "js-beautify": "1.5.10",
-    "node-mkdirs": "0.0.1",
+    "node-mkdirs": "0.0.1"
   },
   "devDependencies": {
     "babel-plugin-transform-class-properties": "^6.16.0",
