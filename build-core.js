@@ -71,50 +71,59 @@ module.exports = function build(buildOptions)
 				}
 			}
 		}
-		return;
-	}
-
-	if (buildOptions.babelRegisterOptions) {
-		require("babel-register")(buildOptions.babelRegisterOptions);
-	}
-
-	// Pull in loader library first
-	if (buildOptions.useAS3JS)
+	} else if (buildOptions.cleanup)
 	{
-		global.AS3JS = require('./lib/as3.js');
+		console.log("Cleaning " + buildOptions.cleanup + " up ...");
+		require("rimraf")(buildOptions.cleanup, function (error) {
+			if (error) console.log("ERROR while cleaning up: " + error);
+		});
 	} else
 	{
-		delete global.AS3JS;
-	}
+		if (buildOptions.babelRegisterOptions) {
+			require("babel-register")(buildOptions.babelRegisterOptions);
+		}
 
-	var runtime = require(buildOptions.runtime);
-	// Load the program
-	var as3js = buildOptions.babelRegisterOptions
-		?new runtime.default()
-		:new runtime();
-
-	// Execute the program 
-	var result = as3js.compile(buildOptions.options);
-
-	if (buildOptions.bundle)
-	{
-		// Output the resulting source code
-		console.log("Bundling " + Object.keys(result.packageSources).length + " packages to " + buildOptions.bundle);
-		writeToSourceFile(buildOptions, buildOptions.bundle, result.compiledSource);
-	} else {
-		var entry = buildOptions.options.entry;
-		var basePackageName = entry.substring(0, entry.lastIndexOf("."));
-		for (var fullClassName in result.packageSources)
+		// Pull in loader library first
+		if (buildOptions.useAS3JS)
 		{
-			var relativeClassName = fullClassName.substring(basePackageName.length + 1);
-			var filename = path.join(buildOptions.outputPath, relativeClassName.replace(/\./g, "/") + ".js");
+			global.AS3JS = require('./lib/as3.js');
+		} else
+		{
+			delete global.AS3JS;
+		}
 
-			console.log("Writing Class " + fullClassName + " to " + filename);
-			writeToSourceFile(buildOptions, filename, result.packageSources[fullClassName]);
+		var runtime = require(buildOptions.runtime);
+		// Load the program
+		var as3js = buildOptions.babelRegisterOptions
+			?new runtime.default()
+			:new runtime();
 
-			if (buildOptions.generateIndex && (fullClassName === entry))
+		// Execute the program 
+		var result = as3js.compile(buildOptions.options);
+
+		if (buildOptions.bundle)
+		{
+			// Output the resulting source code
+			console.log("Bundling " + Object.keys(result.packageSources).length + " packages to " + buildOptions.bundle);
+			writeToSourceFile(buildOptions, buildOptions.bundle, result.compiledSource);
+		} else {
+			var entry = buildOptions.options.entry;
+			var basePackageName = entry.substring(0, entry.lastIndexOf("."));
+			console.log("Base package: " + basePackageName + " --> " +  buildOptions.outputPath);
+
+			for (var fullClassName in result.packageSources)
 			{
-				writeToSourceFile(buildOptions, "./index.js", "module.exports = require(\"./" + path.join(buildOptions.outputPath, relativeClassName).replace(/\\/g, "/") + "\");");
+				var relativeClassName = fullClassName.substring(basePackageName.length + 1);
+				var relativePath = relativeClassName.replace(/\./g, "/") + ".js";
+				var filename = path.join(buildOptions.outputPath, relativePath);
+
+				console.log(relativeClassName + " --> " + relativePath);
+				writeToSourceFile(buildOptions, filename, result.packageSources[fullClassName]);
+
+				if (buildOptions.generateIndex && (fullClassName === entry))
+				{
+					writeToSourceFile(buildOptions, "./index.js", "module.exports = require(\"./" + path.join(buildOptions.outputPath, relativeClassName).replace(/\\/g, "/") + "\");");
+				}
 			}
 		}
 	}

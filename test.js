@@ -132,8 +132,11 @@ var build = require("./build-core.js");
 	},
 	{
 		compare: [
-			"./compiled/es2015/using-importjs/bundle.js",
+			"./runtime.js",
 			"./compiled/es2009/using-importjs/bundle.js"
 		]
+	},
+	{
+		cleanup: "./compiled"
 	}
 ].forEach(build);
