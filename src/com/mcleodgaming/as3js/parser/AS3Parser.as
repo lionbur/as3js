@@ -734,9 +734,18 @@ package com.mcleodgaming.as3js.parser
 				if (fn.argList[i].isRestParam && !parserOptions.supports.restParameter)
 				{
 					args += "\n\t\t\tvar " + fn.argList[i].name + " = Array.prototype.slice.call(arguments).splice(" + i + ");";
-				} else if (fn.argList[i].value && !parserOptions.supports.defaultParameters)
+				} else if (fn.argList[i].value)
 				{
-					args += "\n\t\t\t" + fn.argList[i].name + " = AS3JS.Utils.getDefaultValue(" + fn.argList[i].name + ", " + fn.argList[i].value + ");";
+					if (!parserOptions.supports.defaultParameters)
+					{
+						if (parserOptions.supports.ImportJS)
+						{
+							args += "\n\t\t\t" + fn.argList[i].name + " = AS3JS.Utils.getDefaultValue(" + fn.argList[i].name + ", " + fn.argList[i].value + ");";
+						} else
+						{
+							args += "\n\t\t\t" + fn.argList[i].name + " = (typeof " + fn.argList[i].name + " !== \"undefined\") ? " + fn.argList[i].name + " : " + fn.argList[i].value + ";";
+						}
+					}
 				}
 			}
 			return fn.value.substr(0, start + 1) + args + fn.value.substr(start + 1);
