@@ -123,6 +123,12 @@ var testCases = [
 			}
 		}
 	},
+	{
+		compare: [
+			"./compiled/es2015/using-importjs/bundle.js",
+			"./compiled/es2009/using-importjs/bundle.js"
+		]
+	}
 ];
 
 function writeToSourceFile(testCase, filename, code) {
@@ -152,6 +158,45 @@ function writeToSourceFile(testCase, filename, code) {
 }
 
 for (var testCase of testCases) {
+	if (testCase.compare)
+	{
+		var previousContent = null, content = null;
+
+		for (var filename of testCase.compare)
+		{
+			content = fs.readFileSync(filename, "utf8");
+			if (previousContent && (previousContent !== content))
+			{
+				break;
+			}
+			previousContent = content;
+		}
+
+		if (previousContent === content)
+		{
+			console.log("SUCCESS! " + testCase.compare.join(", ") + " are identical.");
+		} else
+		{
+			console.log("ERROR! " + testCase.compare.join(", ") + " have failed on comparison test.");
+
+			var lines1 = previousContent.split("\n");
+			var lines2 = content.split("\n");
+			var numLines = Math.min(lines1, lines2);
+
+			for (var i = 0; i < numLines; ++i)
+			{
+				if (lines1[i] !== lines2[i])
+				{
+					console.log("Line " + i);
+					console.log(lines1[i]);
+					console.log(lines2[i]);
+					break;
+				}
+			}
+		}
+		continue;
+	}
+
 	if (testCase.babelRegisterOptions) {
 		require("babel-register")(testCase.babelRegisterOptions);
 	}
