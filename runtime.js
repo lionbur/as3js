@@ -111,20 +111,8 @@
     module.exports = AS3Pattern;
   };
   Program["com.mcleodgaming.as3js.Main"] = function(module, exports) {
-    var path = (function() {
-      try {
-        return require("path");
-      } catch (e) {
-        return undefined;
-      }
-    })();
-    var fs = (function() {
-      try {
-        return require("fs");
-      } catch (e) {
-        return undefined;
-      }
-    })();
+    var path = require("path");
+    var fs = require("fs");
 
     var AS3Parser;
     module.inject = function() {
@@ -173,7 +161,13 @@
       var rawPackages = options.rawPackages || [];
       var parserOptions = {
         safeRequire: options.safeRequire,
-        ignoreFlash: options.ignoreFlash
+        ignoreFlash: options.ignoreFlash,
+        supports: options.supports,
+        entry: options.entry
+      };
+
+      parserOptions.supports = parserOptions.supports || {
+        ImportJS: true
       };
 
       //Temp classes for holding raw class info
@@ -275,7 +269,8 @@
         classes[i].process(classes);
       }
       // Load stringified versions of snippets/main-snippet.js and snippets/class-snippet.js
-      var mainTemplate = "(function(){var Program={};{{packages}}if(typeof module !== 'undefined'){module.exports=AS3JS.load({program:Program,entry:\"{{entryPoint}}\",entryMode:\"{{entryMode}}\"});}else if(typeof window!=='undefined'&&typeof AS3JS!=='undefined'){window['{{entryPoint}}']=AS3JS.load({program:Program,entry:\"{{entryPoint}}\",entryMode:\"{{entryMode}}\"});}})();";
+      var noImportJS = options.supports.ImportJS ? "" : "if(typeof AS3JS==='undefined'){module.exports=Program[\"{{entryPoint}}\"];}else ";
+      var mainTemplate = "(function(){v" + "ar Program={};{{packages}}" + noImportJS + "if(typeof module !== 'undefined'){module.exports=AS3JS.load({program:Program,entry:\"{{entryPoint}}\",entryMode:\"{{entryMode}}\"});}else if(typeof window!=='undefined'&&typeof AS3JS!=='undefined'){window['{{entryPoint}}']=AS3JS.load({program:Program,entry:\"{{entryPoint}}\",entryMode:\"{{entryMode}}\"});}})();";
       var classTemplate = "Program[\"{{module}}\"]=function(module, exports){{{source}}};";
       var packageObjects = [];
       var classObjects = null;
@@ -362,6 +357,8 @@
     module.exports = Main;
   };
   Program["com.mcleodgaming.as3js.parser.AS3Class"] = function(module, exports) {
+    var path = require("path");
+
     var Main, AS3Parser, AS3Pattern, AS3Function, AS3Variable;
     module.inject = function() {
       Main = module.import('com.mcleodgaming.as3js', 'Main');
@@ -392,9 +389,12 @@
       this.classMap = null;
       this.classMapFiltered = null;
       this.packageMap = null;
+      this.supports = null;
       options = AS3JS.Utils.getDefaultValue(options, null);
       options = options || {};
       this.safeRequire = false;
+      this.supports = options.supports || {};
+      this.entry = options.entry;
 
       if (typeof options.safeRequire !== 'undefined') {
         this.safeRequire = options.safeRequire;
@@ -454,6 +454,8 @@
     AS3Class.prototype.packageMap = null;
     AS3Class.prototype.safeRequire = false;
     AS3Class.prototype.ignoreFlash = false;
+    AS3Class.prototype.supports = null;
+    AS3Class.prototype.entry = null;
     AS3Class.prototype.registerImports = function(clsList) {
       var i;
       for (i in this.imports) {
@@ -676,30 +678,54 @@
         }
       }
     };
+    AS3Class.prototype.stringifyType = function(member) {
+      if (!this.supports.flowTypes || (member.type === "*")) {
+        return "";
+      }
+      return ":" + member.type.replace(/Vector[\S\s]*/, "TypedArray");
+    };
     AS3Class.prototype.stringifyFunc = function(fn) {
+      var subTypeSeparator = this.supports.accessors ? " " : "_";
       var buffer = "";
       if (fn instanceof AS3Function) {
         //Functions need to be handled differently
         //Prepend sub-type if it exists
         if (fn.subType) {
-          buffer += fn.subType + '_';
+          buffer += fn.subType + subTypeSeparator;
         }
         //Print out the rest of the name and start the function definition
-        buffer += fn.name
-        buffer += " = function(";
+        var isNewSyntax = this.supports.class && (this.supports.static || !fn.isStatic);
+
+        buffer += fn.name;
+        buffer += isNewSyntax ? " (" : " = function(";
         //Concat all of the arguments together
-        tmpArr = [];
-        for (j = 0; j < fn.argList.length; j++) {
+        var tmpArr = [];
+        for (var j = 0; j < fn.argList.length; j++) {
           if (!fn.argList[j].isRestParam) {
-            tmpArr.push(fn.argList[j].name);
+            var argument = (this.supports.restParameter && fn.argList[j].isRestParam) ? "..." : "";
+            argument += fn.argList[j].name + this.stringifyType(fn.argList[j]);
+            if (this.supports.defaultParameters) {
+              argument += " = " + fn.argList[j].value;
+            }
+
+            tmpArr.push(argument);
           }
         }
-        buffer += tmpArr.join(", ") + ") ";
+        buffer += tmpArr.join(", ") + ")" + this.stringifyType(fn) + " ";
         //Function definition is finally added
-        buffer += fn.value + ";\n";
+        //Optional support for let keyword
+        if (this.supports.let) {
+          buffer += fn.value.replace(/var(\s+)/g, "let$1");
+        } else {
+          buffer += fn.value;
+        }
+        if (!isNewSyntax) {
+          buffer += ";";
+        }
+        buffer += "\n";
       } else if (fn instanceof AS3Variable) {
         //Variables can be added immediately
-        buffer += fn.name;
+        buffer += fn.name + this.stringifyType(fn);
         buffer += " = " + fn.value + ";\n";
       }
       return buffer;
@@ -774,48 +800,79 @@
       for (i in allFuncs) {
         Main.debug("Now parsing function: " + this.className + ":" + allFuncs[i].name);
         allFuncs[i].value = AS3Parser.parseFunc(this, allFuncs[i].value, allFuncs[i].buildLocalVariableStack(), allFuncs[i].isStatic)[0];
-        allFuncs[i].value = AS3Parser.checkArguments(allFuncs[i]);
+        allFuncs[i].value = AS3Parser.checkArguments(allFuncs[i], this);
         if (allFuncs[i].name === this.className) {
           //Inject instantiations here
           allFuncs[i].value = AS3Parser.injectInstantiations(this, allFuncs[i]);
         }
-        allFuncs[i].value = AS3Parser.cleanup(allFuncs[i].value);
+        allFuncs[i].value = AS3Parser.cleanup(allFuncs[i].value, this);
         //Fix supers
-        allFuncs[i].value = allFuncs[i].value.replace(/super\.(.*?)\(/g, this.parent + '.prototype.$1.call(this, ').replace(/\.call\(this,\s*\)/g, ".call(this)");
-        allFuncs[i].value = allFuncs[i].value.replace(/super\(/g, this.parent + '.call(this, ').replace(/\.call\(this,\s*\)/g, ".call(this)");
+        if (!this.supports.super) {
+          allFuncs[i].value = allFuncs[i].value.replace(/super\.(.*?)\(/g, this.parent + '.prototype.$1.call(this, ').replace(/\.call\(this,\s*\)/g, ".call(this)");
+          allFuncs[i].value = allFuncs[i].value.replace(/super\(/g, this.parent + '.call(this, ').replace(/\.call\(this,\s*\)/g, ".call(this)");
+        }
         allFuncs[i].value = allFuncs[i].value.replace(new RegExp("this[.]" + this.parent, "g"), this.parent); //Fix extra 'this' on the parent
       }
       for (i in allStaticFuncs) {
         Main.debug("Now parsing static function: " + this.className + ":" + allStaticFuncs[i].name);
         allStaticFuncs[i].value = AS3Parser.parseFunc(this, allStaticFuncs[i].value, allStaticFuncs[i].buildLocalVariableStack(), allStaticFuncs[i].isStatic)[0];
-        allStaticFuncs[i].value = AS3Parser.checkArguments(allStaticFuncs[i]);
-        allStaticFuncs[i].value = AS3Parser.cleanup(allStaticFuncs[i].value);
+        allStaticFuncs[i].value = AS3Parser.checkArguments(allStaticFuncs[i], this);
+        allStaticFuncs[i].value = AS3Parser.cleanup(allStaticFuncs[i].value, this);
       }
+    };
+    AS3Class.prototype.packageNameToPath = function(pkg) {
+      var ownPath = this.packageName.replace(/\./g, "/");
+      var thatPath = pkg.replace(/\./g, "/");
+
+      var result = path.relative(ownPath, thatPath).replace(/\\/g, "/");
+
+      if (/^\./.test(result)) {
+        return result;
+      }
+      return result.length ? "./" + result : ".";
     };
     AS3Class.prototype.toString = function() {
       //Outputs the class inside a JS function
       var i;
       var j;
       var buffer = "";
+      var varOrConst = this.supports.const ? "const " : "v" + "ar ";
+      var requireCall = this.safeRequire ? "safeRequire" : "require";
+      var requireTemplate = this.supports.import ? "import ${module} from ${path};\n" : varOrConst + " ${module} = " + requireCall + "(${path});\n";
+      var varOrLet = this.supports.let ? "let " : "v" + "ar ";
+
+      if (this.safeRequire) {
+        buffer += "function safeRequire(mod) { try { return require(mod); } catch(e) { return undefined; } }\n\n";
+      }
 
       if (this.requires.length > 0) {
-        if (this.safeRequire) {
-          for (i in this.requires) {
-            buffer += 'var ' + this.requires[i].substring(1, this.requires[i].length - 1) + ' = (function () { try { return require(' + this.requires[i] + '); } catch(e) { return undefined; }})();\n';
-          }
-        } else {
-          for (i in this.requires) {
-            buffer += 'var ' + this.requires[i].substring(1, this.requires[i].length - 1) + ' = require(' + this.requires[i] + ');\n';
-          }
+        for (i in this.requires) {
+          var require = this.requires[i];
+
+          buffer += requireTemplate
+            .replace("${module}", require.substring(1, require.length - 1))
+            .replace("${path}", require);
         }
         buffer += "\n";
       }
 
+      var initClassFunctionName = "_initClass_";
       var tmpArr = null;
+      var injectedText = "";
 
       //Parent class must be imported if it exists
       if (this.parentDefinition) {
-        buffer += "var " + this.parentDefinition.className + " = module.import('" + this.parentDefinition.packageName + "', '" + this.parentDefinition.className + "');\n";
+        var importParentTemplate = this.supports.import ? "import ${name} from \"${path}/${name}\";\n" : this.supports.ImportJS ? varOrConst + "${module} = module.import('${path}', '${name}');\n" : varOrConst + "${module} = " + requireCall + "(\"${path}/${name}\");\n";
+        var packagePath = this.supports.ImportJS ? this.parentDefinition.packageName : this.packageNameToPath(this.parentDefinition.packageName);
+
+        buffer += importParentTemplate
+          .replace("${module}", this.parentDefinition.className)
+          .replace("${path}", packagePath)
+          .replace(/\$\{name\}/g, this.parentDefinition.className);
+
+        if (!this.supports.ImportJS) {
+          injectedText += "if (" + this.parentDefinition.className + "." + initClassFunctionName + ") " + this.parentDefinition.className + " ." + initClassFunctionName + "();\n"
+        }
       }
 
       //Create refs for all the other classes
@@ -832,103 +889,183 @@
         }
         //Join up separated by commas
         if (tmpArr.length > 0) {
-          buffer += 'var ';
+          buffer += varOrLet;
           buffer += tmpArr.join(", ") + ";\n";
         }
       }
-      //Check for injection function code
-      var injectedText = "";
+      var importTemplate = this.supports.import ? "${module} = " + requireCall + "(\"${path}/${name}\").default; if(${name}." + initClassFunctionName + ") ${name}." + initClassFunctionName + "();\n" : this.supports.ImportJS ? "${module} = module.import('${path}', '${name}');\n" : "${module} = " + requireCall + "(\"${path}/${name}\"); if(${name}." + initClassFunctionName + ") ${name}." + initClassFunctionName + "();\n";
+
       for (i in this.imports) {
         if (!(this.ignoreFlash && this.imports[i].indexOf('flash.') >= 0) && this.packageName + '.' + this.className != this.imports[i] && !(this.parentDefinition && this.parentDefinition.packageName + '.' + this.parentDefinition.className == this.imports[i])) //Ignore flash imports and parent for injections
         {
           // Must be in the filtered map, otherwise no point in writing
           if (this.classMapFiltered[this.packageMap[this.imports[i]].className]) {
-            injectedText += "\t" + this.imports[i].substr(this.imports[i].lastIndexOf('.') + 1) + " = module.import('" + this.packageMap[this.imports[i]].packageName + "', '" + this.packageMap[this.imports[i]].className + "');\n";
+            var packagePath = this.supports.ImportJS ? this.packageMap[this.imports[i]].packageName : this.packageNameToPath(this.packageMap[this.imports[i]].packageName);
+
+            injectedText += importTemplate
+              .replace("${module}", this.imports[i].substr(this.imports[i].lastIndexOf('.') + 1))
+              .replace("${path}", packagePath)
+              .replace(/\$\{name\}/g, this.packageMap[this.imports[i]].className);
           }
         }
       }
-      //Set the non-native statics vars now
-      for (i in this.staticMembers) {
-        if (!(this.staticMembers[i] instanceof AS3Function)) {
-          injectedText += "\t" + AS3Parser.cleanup(this.className + '.' + this.staticMembers[i].name + ' = ' + this.staticMembers[i].value + ";\n");
+
+      if (!this.supports.class || !this.supports.static) {
+        //Set the non-native statics vars now
+        for (i in this.staticMembers) {
+          if (!(this.staticMembers[i] instanceof AS3Function)) {
+            injectedText += "\t" + AS3Parser.cleanup(this.className + '.' + this.staticMembers[i].name + this.stringifyType(this.staticMembers[i]) + ' = ' + this.staticMembers[i].value + ";\n", this);
+          }
         }
       }
 
       if (injectedText.length > 0) {
-        buffer += "module.inject = function () {\n";
-        buffer += injectedText;
-        buffer += "};\n";
+        if (this.supports.ImportJS) {
+          buffer += "module.inject = function ()\n";
+          buffer += "{\n" + injectedText + "};\n";
+        } else {
+          injectedText = "delete " + this.className + "." + initClassFunctionName + ";\n" + injectedText;
+
+          var initClassFunc = new AS3Function();
+          initClassFunc.isStatic = true;
+          initClassFunc.name = initClassFunctionName;
+          initClassFunc.type = "void";
+          initClassFunc.value = "{\n" + injectedText + "}";
+          this.staticMembers.push(initClassFunc);
+        }
       }
 
       buffer += '\n';
 
-      buffer += (this.fieldMap[this.className]) ? "var " + this.stringifyFunc(this.fieldMap[this.className]) : "var " + this.className + " = function " + this.className + "() {};";
+      if (this.supports.import) {
+        buffer += "export default ";
+      }
+      if (this.supports.class) {
+        buffer += "class " + this.className;
+      } else {
+        buffer += (this.fieldMap[this.className]) ? varOrConst + this.stringifyFunc(this.fieldMap[this.className]) : varOrConst + this.className + " = function " + this.className + "() {};";
 
-      buffer += '\n';
+        buffer += '\n';
+      }
 
       if (this.parent) {
-        //Extend parent if necessary
-        buffer += this.className + ".prototype = Object.create(" + this.parent + ".prototype);";
+        if (this.supports.class) {
+          buffer += " extends " + this.parent;
+        } else {
+          //Extend parent if necessary
+          buffer += this.className + ".prototype = Object.create(" + this.parent + ".prototype);";
+        }
       }
 
-      buffer += '\n\n';
+      if (this.supports.class) {
+        buffer += "\n{\n";
+      } else {
+        buffer += "\n\n";
+      }
 
+      var staticMembersText = "";
       if (this.staticMembers.length > 0) {
         //Place the static members first (skip the ones that aren't native types, we will import later
         for (i in this.staticMembers) {
-          if (this.staticMembers[i] instanceof AS3Function) {
-            buffer += this.className + "." + this.stringifyFunc(this.staticMembers[i]);
+          if (this.supports.static) {
+            staticMembersText += "static " + this.stringifyFunc(this.staticMembers[i]);
+          } else if (this.staticMembers[i] instanceof AS3Function) {
+            staticMembersText += this.className + "." + this.stringifyFunc(this.staticMembers[i]);
           } else if (this.staticMembers[i].type === "Number" || this.staticMembers[i].type === "int" || this.staticMembers[i].type === "uint") {
             if (isNaN(parseInt(this.staticMembers[i].value))) {
-              buffer += this.className + "." + this.staticMembers[i].name + ' = 0;\n';
+              staticMembersText += this.className + "." + this.staticMembers[i].name + this.stringifyType(this.staticMembers[i]) + ' = 0;\n';
             } else {
-              buffer += this.className + "." + this.stringifyFunc(this.staticMembers[i]);
+              staticMembersText += this.className + "." + this.stringifyFunc(this.staticMembers[i]);
             }
           } else if (this.staticMembers[i].type === "Boolean") {
-            buffer += this.className + "." + this.staticMembers[i].name + ' = false;\n';
+            staticMembersText += this.className + "." + this.staticMembers[i].name + this.stringifyType(this.staticMembers[i]) + ' = false;\n';
           } else {
-            buffer += this.className + "." + this.staticMembers[i].name + ' = null;\n';
+            staticMembersText += this.className + "." + this.staticMembers[i].name + this.stringifyType(this.staticMembers[i]) + ' = null;\n';
           }
         }
         for (i in this.staticGetters) {
-          buffer += this.className + "." + this.stringifyFunc(this.staticGetters[i]);
+          staticMembersText += this.className + "." + this.stringifyFunc(this.staticGetters[i]);
         }
         for (i in this.staticSetters) {
-          buffer += this.className + "." + this.stringifyFunc(this.staticSetters[i]);
+          staticMembersText += this.className + "." + this.stringifyFunc(this.staticSetters[i]);
         }
-        buffer += '\n';
+        staticMembersText += '\n';
       }
-      buffer += "\n";
+
+      if (!this.supports.class || this.supports.static) {
+        buffer += staticMembersText;
+        buffer += "\n";
+      }
+
+      var areMemberVariablesOutOfClass = this.supports.class && !this.supports.memberVariables;
+      var memberFunctionPrefix = this.supports.class ? "\t" : this.className + ".prototype.";
+      var memberVariablePrefix = areMemberVariablesOutOfClass ? this.className + ".prototype." : memberFunctionPrefix;
+      var memberVariablesText = "";
 
       for (i in this.getters) {
-        buffer += this.className + ".prototype." + this.stringifyFunc(this.getters[i]);
+        buffer += memberPrefix + this.stringifyFunc(this.getters[i]);
       }
       for (i in this.setters) {
-        buffer += this.className + ".prototype." + this.stringifyFunc(this.setters[i]);
+        buffer += memberPrefix + this.stringifyFunc(this.setters[i]);
       }
       for (i in this.members) {
         if (this.members[i].name === this.className) {
-          continue;
+          if (this.supports.class) {
+            this.members[i].name = "constructor";
+            if (this.supports.super && this.parentDefinition && !this.members[i].value.match(new RegExp("^\\{\\s*super\\("))) {
+              this.members[i].value = this.members[i].value.replace(new RegExp("^\\{(\\s*)"), "{$1\tsuper ();\n");
+            }
+          } else {
+            continue;
+          }
         }
         if (this.members[i] instanceof AS3Function || (AS3Class.nativeTypes.indexOf(this.members[i].type) >= 0 && this.members[i].value)) {
-          buffer += this.className + ".prototype." + this.stringifyFunc(this.members[i]); //Print functions immediately
+          if (this.members[i] instanceof AS3Function) {
+            buffer += memberFunctionPrefix + this.stringifyFunc(this.members[i]); //Print functions immediately
+          } else {
+            memberVariablesText += memberVariablePrefix + this.stringifyFunc(this.members[i]);
+          }
         } else if (this.members[i].type === "Number" || this.members[i].type === "int" || this.members[i].type === "uint") {
           if (isNaN(parseInt(this.members[i].value))) {
-            buffer += this.className + ".prototype." + this.members[i].name + ' = 0;\n';
+            memberVariablesText += memberVariablePrefix + this.members[i].name + ' = 0;\n';
           } else {
-            buffer += this.className + ".prototype." + this.stringifyFunc(this.members[i]);
+            memberVariablesText += memberVariablePrefix + this.stringifyFunc(this.members[i]);
           }
         } else if (this.members[i].type === "Boolean") {
-          buffer += this.className + ".prototype." + this.members[i].name + ' = false;\n';
+          memberVariablesText += memberVariablePrefix + this.members[i].name + ' = false;\n';
         } else {
-          buffer += this.className + ".prototype." + this.members[i].name + ' = null;\n';
+          memberVariablesText += memberVariablePrefix + this.members[i].name + ' = null;\n';
+        }
+
+        if (!areMemberVariablesOutOfClass) {
+          buffer += memberVariablesText;
+          memberVariablesText = "";
         }
       }
 
-      buffer = buffer.substr(0, buffer.length - 2) + "\n"; //Strips the final comma out of the string
+      if (this.supports.class) {
+        buffer += "}\n";
+      } else {
+        buffer = buffer.substr(0, buffer.length - 2) + "\n"; //Strips the final comma out of the string
+      }
 
-      buffer += "\n\n";
-      buffer += "module.exports = " + this.className + ";\n";
+      if (areMemberVariablesOutOfClass) {
+        buffer += memberVariablesText;
+      }
+
+      if (this.supports.class && !this.supports.static) {
+        buffer += staticMembersText;
+        buffer += "\n";
+      }
+
+      if (!this.supports.import) {
+        buffer += "\n\n";
+        buffer += "module.exports = " + this.className + ";\n";
+      }
+
+      if (!this.supports.ImportJS && (this.entry === this.packageName + "." + this.className)) {
+        buffer += this.className + "." + initClassFunctionName + "(); // Entry point module initializes all dependencies\n";
+      }
 
       //Remaining fixes
       buffer = buffer.replace(/(this\.)+/g, "this.");
@@ -939,20 +1076,8 @@
     module.exports = AS3Class;
   };
   Program["com.mcleodgaming.as3js.parser.AS3Parser"] = function(module, exports) {
-    var path = (function() {
-      try {
-        return require("path");
-      } catch (e) {
-        return undefined;
-      }
-    })();
-    var fs = (function() {
-      try {
-        return require("fs");
-      } catch (e) {
-        return undefined;
-      }
-    })();
+    var path = require("path");
+    var fs = require("fs");
 
     var Main, AS3Class, AS3Token, AS3Encapsulation, AS3MemberType, AS3ParseState, AS3Pattern, AS3Argument, AS3Function, AS3Member, AS3Variable;
     module.inject = function() {
@@ -981,6 +1106,7 @@
       this.parserOptions = {};
       this.parserOptions.safeRequire = false;
       this.parserOptions.ignoreFlash = false;
+      this.parserOptions.supports = {};
     };
 
     AS3Parser.PREVIOUS_BLOCK = null;
@@ -1216,7 +1342,7 @@
       // Class paths at the root level might accidentally be prepended with a "."
       return clsPath.replace(/^\./g, "");
     };
-    AS3Parser.checkArguments = function(fn) {
+    AS3Parser.checkArguments = function(fn, parserOptions) {
       if (fn.argList.length <= 0) {
         return fn.value;
       }
@@ -1224,10 +1350,16 @@
       var args = "";
       for (var i = 0; i < fn.argList.length; i++) {
         //We will inject arguments into the top of the method definition
-        if (fn.argList[i].isRestParam) {
+        if (fn.argList[i].isRestParam && !parserOptions.supports.restParameter) {
           args += "\n\t\t\tvar " + fn.argList[i].name + " = Array.prototype.slice.call(arguments).splice(" + i + ");";
         } else if (fn.argList[i].value) {
-          args += "\n\t\t\t" + fn.argList[i].name + " = AS3JS.Utils.getDefaultValue(" + fn.argList[i].name + ", " + fn.argList[i].value + ");";
+          if (!parserOptions.supports.defaultParameters) {
+            if (parserOptions.supports.ImportJS) {
+              args += "\n\t\t\t" + fn.argList[i].name + " = AS3JS.Utils.getDefaultValue(" + fn.argList[i].name + ", " + fn.argList[i].value + ");";
+            } else {
+              args += "\n\t\t\t" + fn.argList[i].name + " = (typeof " + fn.argList[i].name + " !== \"undefined\") ? " + fn.argList[i].name + " : " + fn.argList[i].value + ";";
+            }
+          }
         }
       }
       return fn.value.substr(0, start + 1) + args + fn.value.substr(start + 1);
@@ -1570,11 +1702,13 @@
       }
       return [result, index];
     };
-    AS3Parser.cleanup = function(text) {
+    AS3Parser.cleanup = function(text, parserOptions) {
+      parserOptions = AS3JS.Utils.getDefaultValue(parserOptions, {});
       var i;
       var type;
       var params;
       var val;
+      var NEW_ARRAY = "new A" + "rray";
       var matches = text.match(AS3Pattern.VECTOR[0]);
       //For each Vector.<>() found in the text
       for (i in matches) {
@@ -1591,7 +1725,11 @@
         }
         //Replace accordingly
         if (params.length > 0 && params[0].trim() != '') {
-          text = text.replace(AS3Pattern.VECTOR[1], "AS3JS.Utils.createArray(" + params[0] + ", " + val + ")");
+          if (parserOptions.supports.ImportJS) {
+            text = text.replace(AS3Pattern.VECTOR[1], "AS3JS.Utils.createArray(" + params[0] + ", " + val + ")");
+          } else {
+            text = text.replace(AS3Pattern.VECTOR[1], "(new A" + "rray(" + params[0] + ")).fill(" + val + ")");
+          }
         } else {
           text = text.replace(AS3Pattern.VECTOR[1], "[]");
         }
@@ -1603,7 +1741,11 @@
         params = matches[i].replace(AS3Pattern.ARRAY[0], '$1').trim();
         //Replace accordingly
         if (params.length > 0 && params[0].trim() != '') {
-          text = text.replace(AS3Pattern.ARRAY[1], "AS3JS.Utils.createArray(" + params[0] + ", null)");
+          if (parserOptions.supports.ImportJS) {
+            text = text.replace(AS3Pattern.ARRAY[1], "AS3JS.Utils.createArray(" + params[0] + ", null)");
+          } else {
+            text = text.replace(AS3Pattern.VECTOR[1], "new A" + "rray(" + params[0] + ")");
+          }
         } else {
           text = text.replace(AS3Pattern.ARRAY[1], "[]");
         }
@@ -1611,7 +1753,11 @@
       //Take care of function binding
 
       //Now cleanup variable types
-      text = text.replace(/([^0-9a-zA-Z_$.])var(\s*[a-zA-Z_$*][0-9a-zA-Z_$.<>]*)\s*:\s*([a-zA-Z_$*][0-9a-zA-Z_$.<>]*)/g, "$1var$2");
+      if (parserOptions.supports.flowTypes) {
+        text = text.replace(/Vector([0-9a-zA-Z_$.<>]*)/g, "TypedArray");
+      } else {
+        text = text.replace(/([^0-9a-zA-Z_$.])var(\s*[a-zA-Z_$*][0-9a-zA-Z_$.<>]*)\s*:\s*([a-zA-Z_$*][0-9a-zA-Z_$.<>]*)/g, "$1var$2");
+      }
 
       return text;
     };
@@ -1936,6 +2082,8 @@
       if (typeof options.ignoreFlash !== 'undefined') {
         this.parserOptions.ignoreFlash = options.ignoreFlash;
       }
+      this.parserOptions.supports = options.supports || {};
+      this.parserOptions.entry = options.entry;
 
       var classDefinition = new AS3Class(this.parserOptions);
       this.stack.splice(0, this.stack.length);
