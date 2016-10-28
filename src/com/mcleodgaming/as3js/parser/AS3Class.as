@@ -599,8 +599,7 @@ package com.mcleodgaming.as3js.parser
 				buffer += "\n";
 			}
 		
-			var initClassFunctionName = "_initClass_";
-			var tmpArr:Array = null;
+			var initClassFunctionName = "__initClass";
 			var injectedText = "";
 
 			//Parent class must be imported if it exists
