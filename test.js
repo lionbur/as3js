@@ -9,7 +9,7 @@ var build = require("./build-core.js");
 			srcPaths: ['./src'],
 			silent: false,
 			verbose: false,
-			safefRequire: true,
+			safeRequire: true,
 			entry: 'com.mcleodgaming.as3js.Main',
 			entryMode: 'static',
 			supports: {
