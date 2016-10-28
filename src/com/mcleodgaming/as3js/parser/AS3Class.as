@@ -569,6 +569,11 @@ package com.mcleodgaming.as3js.parser
 				?"./" + result
 				:".";
 		}
+		private function resolveClassName(pkg:Object):String {
+			return pkg.packageName !== ""
+				?pkg.packageName + "." + pkg.className
+				:pkg.className;
+		}
 		public function toString():String
 		{
 			//Outputs the class inside a JS function
@@ -621,14 +626,15 @@ package com.mcleodgaming.as3js.parser
 				
 				if (!this.supports.ImportJS)
 				{
-					injectedText += "if (" + parentDefinition.className + "." + initClassFunctionName + ") " + parentDefinition.className + " ." + initClassFunctionName + "();\n"
+					injectedText += parentDefinition.className + " ." + initClassFunctionName + "();\n"
 				}
 			}
 
+			var isEntryPoint:Boolean = !this.supports.ImportJS && (entry === resolveClassName(this)); 
 			//Create refs for all the other classes
-			if (imports.length > 0)
+			if (!isEntryPoint && (imports.length > 0))
 			{
-				tmpArr = [];
+				var tmpArr:Array = [];
 				for (i in imports)
 				{
 					if (!(ignoreFlash && imports[i].indexOf('flash.') >= 0) && parent != imports[i].substr(imports[i].lastIndexOf('.') + 1) && packageName + '.' + className != imports[i]) //Ignore flash imports
@@ -641,35 +647,49 @@ package com.mcleodgaming.as3js.parser
 					}
 				}
 				//Join up separated by commas
-				if (tmpArr.length > 0)
+				if ((tmpArr.length > 0))
 				{
 					buffer += varOrLet;
 					buffer += tmpArr.join(", ") + ";\n";
 				}
 			}
-			var importTemplate = this.supports.import
-				?"${module} = " + requireCall + "(\"${path}/${name}\").default; if(${name}." + initClassFunctionName + ") ${name}." + initClassFunctionName + "();\n"
-				:this.supports.ImportJS
-					?"${module} = module.import('${path}', '${name}');\n"
-					:"${module} = " + requireCall + "(\"${path}/${name}\"); if(${name}." + initClassFunctionName + ") ${name}." + initClassFunctionName + "();\n";
 
 			for (i in imports)
 			{
 				if (!(ignoreFlash && imports[i].indexOf('flash.') >= 0) && packageName + '.' + className != imports[i] && !(parentDefinition && parentDefinition.packageName + '.' + parentDefinition.className == imports[i])) //Ignore flash imports and parent for injections
 				{
+					var pkg:Object = packageMap[imports[i]];
 					// Must be in the filtered map, otherwise no point in writing
-					if (classMapFiltered[packageMap[imports[i]].className])
+					if (classMapFiltered[pkg.className])
 					{
+						var initClassCall:String = resolveClassName(pkg) === entry
+							?""
+							:"." + initClassFunctionName + "()";
+
+
+						var importTemplate:String = this.supports.import
+							?"import ${name} from \"${path}/${name}\";\n"
+							:this.supports.ImportJS
+								?"${module} = module.import('${path}', '${name}');\n"
+								:"${module} = " + requireCall + "(\"${path}/${name}\")" + initClassCall + ";\n";
+
+						var importPackageName:String = pkg.packageName;
 						var packagePath:String = this.supports.ImportJS
-							?packageMap[imports[i]].packageName
-							:packageNameToPath(packageMap[imports[i]].packageName);
+							?importPackageName
+							:packageNameToPath(importPackageName);
 
 						injectedText += importTemplate
 								.replace("${module}", imports[i].substr(imports[i].lastIndexOf('.') + 1))
 								.replace("${path}", packagePath)
-								.replace(/\$\{name\}/g, packageMap[imports[i]].className);
+								.replace(/\$\{name\}/g, pkg.className);
 					}
 				}
+			}
+
+			if (this.supports.import)
+			{
+				buffer += injectedText;
+				injectedText = "";
 			}
 
 			if (!this.supports.class || !this.supports.static)
@@ -684,13 +704,17 @@ package com.mcleodgaming.as3js.parser
 				}				
 			}
 			
-			if (injectedText.length > 0)
+			if (!isEntryPoint && !this.supports.import)
 			{
-				if (this.supports.ImportJS) {
-					buffer += "module.inject = function ()\n";
-					buffer += "{\n" + injectedText + "};\n";
-				} else {
-					injectedText = "delete " + className + "." + initClassFunctionName + ";\n" + injectedText;
+				if (!this.supports.ImportJS)
+				{
+					if (injectedText.length)
+					{
+						injectedText = "if (!" + className + ".__isClassInitialized) {\n"
+							+ className + ".__isClassInitialized = true;\n"
+							+ injectedText + "}\n";
+					}
+					injectedText += "return " + className + ";";
 
 					var initClassFunc:AS3Function = new AS3Function();
 					initClassFunc.isStatic = true;
@@ -698,6 +722,10 @@ package com.mcleodgaming.as3js.parser
 					initClassFunc.type = "void";
 					initClassFunc.value = "{\n" + injectedText + "}";
 					staticMembers.push(initClassFunc);
+				} else
+				{
+					buffer += "module.inject = function ()\n";
+					buffer += "{\n" + injectedText + "};\n";
 				}
 			}
 
@@ -747,21 +775,6 @@ package com.mcleodgaming.as3js.parser
 					else if (staticMembers[i] instanceof AS3Function)
 					{
 						staticMembersText += className + "." + stringifyFunc(staticMembers[i]);
-					} else if (staticMembers[i].type === "Number" || staticMembers[i].type === "int" || staticMembers[i].type === "uint")
-					{
-						if (isNaN(parseInt(staticMembers[i].value)))
-						{
-							staticMembersText += className + "." + staticMembers[i].name + stringifyType(staticMembers[i]) + ' = 0;\n';
-						} else
-						{
-							staticMembersText += className + "." + stringifyFunc(staticMembers[i]);
-						}
-					} else if (staticMembers[i].type === "Boolean")
-					{
-						staticMembersText += className + "." + staticMembers[i].name + stringifyType(staticMembers[i]) + ' = false;\n';
-					} else
-					{
-						staticMembersText += className + "." +  staticMembers[i].name + stringifyType(staticMembers[i]) + ' = null;\n';
 					}
 				}
 				for (i in staticGetters)
@@ -772,12 +785,18 @@ package com.mcleodgaming.as3js.parser
 				{
 					staticMembersText += className + "." + stringifyFunc(staticSetters[i]);
 				}
-				staticMembersText += '\n';
+				if (!this.supports.class)
+				{
+					staticMembersText += '\n';
+				}
 			}
 	
-			if (!this.supports.class || this.supports.static) {
+			if (staticMembersText.length && (!this.supports.class || this.supports.static)) {
 				buffer += staticMembersText;
-				buffer += "\n";
+				if (!this.supports.class)
+				{
+					buffer += "\n";
+				}
 			}
 
 			var areMemberVariablesOutOfClass:Boolean = this.supports.class && !this.supports.memberVariables; 
@@ -869,12 +888,12 @@ package com.mcleodgaming.as3js.parser
 				buffer += "module.exports = " + className + ";\n";
 			}
 
-			if (!this.supports.ImportJS && (entry === packageName + "." + className)) {
-				buffer += className + "." + initClassFunctionName + "(); // Entry point module initializes all dependencies\n";
-			}
-
 			//Remaining fixes
 			buffer = buffer.replace(/(this\.)+/g, "this.");
+
+			if (isEntryPoint && injectedText.length && !this.supports.import) {
+				buffer += "// Entry point module initializes all dependencies\n" + injectedText;
+			}
 
 			return buffer;
 		}
