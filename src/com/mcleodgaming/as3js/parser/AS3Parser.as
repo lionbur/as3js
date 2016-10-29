@@ -917,7 +917,7 @@ package com.mcleodgaming.as3js.parser
 							if (cls.retrieveField(currToken.token, tmpStatic) && cls.className != currToken.token && !tmpMember && !(prevToken && prevToken.token === "var"))
 							{
 								tmpMember = cls.retrieveField(currToken.token, tmpStatic); //<-Reconciles the type of the current variable
-								if (tmpMember && (tmpMember.subType == 'get' || tmpMember.subType == 'set'))
+								if (tmpMember && (tmpMember.subType == 'get' || tmpMember.subType == 'set') && !cls.supports.accessors)
 								{
 									tmpPeek = AS3Parser.lookAhead(fnText, index);
 									if (tmpPeek.token)
@@ -1063,7 +1063,7 @@ package com.mcleodgaming.as3js.parser
 										//We found a field that matched this value within the class
 										if (tmpField instanceof AS3Function)
 										{
-											if (tmpField.subType == 'get' || tmpField.subType == 'set')
+											if ((tmpField.subType == 'get' || tmpField.subType == 'set') && !cls.supports.accessors)
 											{
 												tmpPeek = AS3Parser.lookAhead(fnText, index);
 												if (tmpPeek.token)

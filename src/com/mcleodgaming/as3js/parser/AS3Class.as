@@ -808,14 +808,6 @@ package com.mcleodgaming.as3js.parser
 				:memberFunctionPrefix;
 			var memberVariablesText:String = "";
 
-			for (i in getters)
-			{
-				buffer += memberPrefix + stringifyFunc(getters[i]);
-			}
-			for (i in setters)
-			{
-				buffer += memberPrefix + stringifyFunc(setters[i]);
-			}
 			for (i in members)
 			{
 				if (members[i].name === className)
@@ -863,6 +855,14 @@ package com.mcleodgaming.as3js.parser
 					buffer += memberVariablesText;
 					memberVariablesText = "";			
 				}
+			}
+			for (i in getters)
+			{
+				buffer += memberFunctionPrefix + stringifyFunc(getters[i]);
+			}
+			for (i in setters)
+			{
+				buffer += memberFunctionPrefix + stringifyFunc(setters[i]);
 			}
 
 			if (this.supports.class)
