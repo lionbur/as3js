@@ -379,7 +379,7 @@ package com.mcleodgaming.as3js.parser
 		}
 		private function stringifyType(member:AS3Member):String
 		{
-			if (!this.supports.flowTypes || (member.type === "*"))
+			if (!supports.flowTypes || (member.type === "*"))
 			{
 				return "";
 			}
@@ -387,7 +387,7 @@ package com.mcleodgaming.as3js.parser
 		}
 		public function stringifyFunc(fn:AS3Member):String
 		{
-			var subTypeSeparator:String = this.supports.accessors ?" " :"_";
+			var subTypeSeparator:String = supports.accessors ?" " :"_";
 			var buffer:String = "";
 			if (fn instanceof AS3Function)
 			{
@@ -398,7 +398,7 @@ package com.mcleodgaming.as3js.parser
 					buffer += fn.subType + subTypeSeparator;
 				}
 				//Print out the rest of the name and start the function definition
-				var isNewSyntax = this.supports.class && (this.supports.static || !fn.isStatic);
+				var isNewSyntax = supports.class && (supports.static || !fn.isStatic);
 
 				buffer += fn.name;
 				buffer += isNewSyntax?" (" :" = function(";
@@ -408,9 +408,9 @@ package com.mcleodgaming.as3js.parser
 				{
 					if (!fn.argList[j].isRestParam)
 					{
-						var argument = (this.supports.restParameter && fn.argList[j].isRestParam) ?"..." :"";
+						var argument = (supports.restParameter && fn.argList[j].isRestParam) ?"..." :"";
 						argument += fn.argList[j].name + stringifyType(fn.argList[j]);
-						if (this.supports.defaultParameters)
+						if (supports.defaultParameters)
 						{
 							argument += " = " + fn.argList[j].value;
 						}
@@ -421,7 +421,7 @@ package com.mcleodgaming.as3js.parser
 				buffer += tmpArr.join(", ") + ")" + stringifyType(fn) + " ";
 				//Function definition is finally added
 			    //Optional support for let keyword
-			    if (this.supports.let)
+			    if (supports.let)
 			    {
 			     	buffer += fn.value.replace(/var(\s+)/g, "let$1");
 			    } else
@@ -541,7 +541,7 @@ package com.mcleodgaming.as3js.parser
 				}
 				allFuncs[i].value = AS3Parser.cleanup(allFuncs[i].value, this);
 				//Fix supers
-				if (!this.supports.super)
+				if (!supports.super)
 				{
 					allFuncs[i].value = allFuncs[i].value.replace(/super\.(.*?)\(/g, parent + '.prototype.$1.call(this, ').replace(/\.call\(this,\s*\)/g, ".call(this)");
 					allFuncs[i].value = allFuncs[i].value.replace(/super\(/g, parent + '.call(this, ').replace(/\.call\(this,\s*\)/g, ".call(this)");
@@ -580,14 +580,14 @@ package com.mcleodgaming.as3js.parser
 			var i:*;
 			var j:*;
 			var buffer:String = "";
-			var varOrConst:String = this.supports.const ?"const " :"v"+"ar ";
-			var requireCall:String = this.safeRequire ?"safeRequire" :"require";
-			var requireTemplate = this.supports.import
+			var varOrConst:String = supports.const ?"const " :"v"+"ar ";
+			var requireCall:String = safeRequire ?"safeRequire" :"require";
+			var requireTemplate = supports.import
 				?"import ${module} from ${path};\n"
 				:varOrConst + " ${module} = " + requireCall + "(${path});\n";
-			var varOrLet:String = this.supports.let ?"let " :"v"+"ar ";
+			var varOrLet:String = supports.let ?"let " :"v"+"ar ";
 
-			if (this.safeRequire) {
+			if (safeRequire) {
 				buffer += "function safeRequire(mod) { try { return require(mod); } catch(e) { return undefined; } }\n\n";
 			}
 
@@ -610,12 +610,12 @@ package com.mcleodgaming.as3js.parser
 			//Parent class must be imported if it exists
 			if (parentDefinition)
 			{
-				var importParentTemplate = this.supports.import
+				var importParentTemplate = supports.import
 					?"import ${name} from \"${path}/${name}\";\n"
-					:this.supports.ImportJS
+					:supports.ImportJS
 						?varOrConst + "${module} = module.import('${path}', '${name}');\n"
 						:varOrConst + "${module} = " + requireCall + "(\"${path}/${name}\");\n";
-				var packagePath:String = this.supports.ImportJS
+				var packagePath:String = supports.ImportJS
 					?parentDefinition.packageName
 					:packageNameToPath(parentDefinition.packageName);
 				
@@ -624,13 +624,13 @@ package com.mcleodgaming.as3js.parser
 						.replace("${path}", packagePath)
 						.replace(/\$\{name\}/g, parentDefinition.className);
 				
-				if (!this.supports.ImportJS)
+				if (!supports.ImportJS)
 				{
 					injectedText += parentDefinition.className + " ." + initClassFunctionName + "();\n"
 				}
 			}
 
-			var isEntryPoint:Boolean = !this.supports.ImportJS && (entry === resolveClassName(this)); 
+			var isEntryPoint:Boolean = !supports.ImportJS && (entry === resolveClassName(this)); 
 			//Create refs for all the other classes
 			if (!isEntryPoint && (imports.length > 0))
 			{
@@ -667,14 +667,14 @@ package com.mcleodgaming.as3js.parser
 							:"." + initClassFunctionName + "()";
 
 
-						var importTemplate:String = this.supports.import
+						var importTemplate:String = supports.import
 							?"import ${name} from \"${path}/${name}\";\n"
-							:this.supports.ImportJS
+							:supports.ImportJS
 								?"${module} = module.import('${path}', '${name}');\n"
 								:"${module} = " + requireCall + "(\"${path}/${name}\")" + initClassCall + ";\n";
 
 						var importPackageName:String = pkg.packageName;
-						var packagePath:String = this.supports.ImportJS
+						var packagePath:String = supports.ImportJS
 							?importPackageName
 							:packageNameToPath(importPackageName);
 
@@ -686,13 +686,13 @@ package com.mcleodgaming.as3js.parser
 				}
 			}
 
-			if (this.supports.import)
+			if (supports.import)
 			{
 				buffer += injectedText;
 				injectedText = "";
 			}
 
-			if (!this.supports.class || !this.supports.static)
+			if (!supports.class || !supports.static)
 			{
 				//Set the non-native statics vars now
 				for (i in staticMembers)
@@ -704,9 +704,9 @@ package com.mcleodgaming.as3js.parser
 				}				
 			}
 			
-			if (!isEntryPoint && !this.supports.import)
+			if (!isEntryPoint && !supports.import)
 			{
-				if (!this.supports.ImportJS)
+				if (!supports.ImportJS)
 				{
 					if (injectedText.length)
 					{
@@ -731,10 +731,10 @@ package com.mcleodgaming.as3js.parser
 
 			buffer += '\n';
 			
-			if (this.supports.import) {
+			if (supports.import) {
 				buffer += "export default ";
 			}
-			if (this.supports.class) {
+			if (supports.class) {
 				buffer += "class " + className;
 			} else {
 				buffer += (fieldMap[className]) 
@@ -746,7 +746,7 @@ package com.mcleodgaming.as3js.parser
 			
 			if (parent)
 			{
-				if (this.supports.class) {
+				if (supports.class) {
 					buffer += " extends " + parent;
 				} else
 				{
@@ -755,7 +755,7 @@ package com.mcleodgaming.as3js.parser
 				}
 			}
 			
-			if (this.supports.class) {
+			if (supports.class) {
 				buffer += "\n{\n";
 			} else
 			{
@@ -768,7 +768,7 @@ package com.mcleodgaming.as3js.parser
 				//Place the static members first (skip the ones that aren't native types, we will import later
 				for (i in staticMembers)
 				{
-					if (this.supports.static)
+					if (supports.static)
 					{
 						staticMembersText += "static " + stringifyFunc(staticMembers[i]);
 					}
@@ -785,22 +785,22 @@ package com.mcleodgaming.as3js.parser
 				{
 					staticMembersText += className + "." + stringifyFunc(staticSetters[i]);
 				}
-				if (!this.supports.class)
+				if (!supports.class)
 				{
 					staticMembersText += '\n';
 				}
 			}
 	
-			if (staticMembersText.length && (!this.supports.class || this.supports.static)) {
+			if (staticMembersText.length && (!supports.class || supports.static)) {
 				buffer += staticMembersText;
-				if (!this.supports.class)
+				if (!supports.class)
 				{
 					buffer += "\n";
 				}
 			}
 
-			var areMemberVariablesOutOfClass:Boolean = this.supports.class && !this.supports.memberVariables; 
-			var memberFunctionPrefix:String = this.supports.class
+			var areMemberVariablesOutOfClass:Boolean = supports.class && !supports.memberVariables; 
+			var memberFunctionPrefix:String = supports.class
 				?"\t"
 				:className + ".prototype.";
 			var memberVariablePrefix:String = areMemberVariablesOutOfClass
@@ -812,10 +812,10 @@ package com.mcleodgaming.as3js.parser
 			{
 				if (members[i].name === className)
 				{
-					if (this.supports.class)
+					if (supports.class)
 					{
 						members[i].name = "constructor";
-						if (this.supports.super && parentDefinition && !members[i].value.match(new RegExp("^\\{\\s*super\\(")))
+						if (supports.super && parentDefinition && !members[i].value.match(new RegExp("^\\{\\s*super\\(")))
 						{
 							members[i].value = members[i].value.replace(new RegExp("^\\{(\\s*)"), "{$1\tsuper ();\n");
 						}
@@ -865,7 +865,7 @@ package com.mcleodgaming.as3js.parser
 				buffer += memberFunctionPrefix + stringifyFunc(setters[i]);
 			}
 
-			if (this.supports.class)
+			if (supports.class)
 			{
 				buffer += "}\n"; 
 			} else {
@@ -877,12 +877,12 @@ package com.mcleodgaming.as3js.parser
 				buffer += memberVariablesText;
 			}
 
-			if (this.supports.class && !this.supports.static) {
+			if (supports.class && !supports.static) {
 				buffer += staticMembersText;
 				buffer += "\n";
 			}
 
-			if (!this.supports.import)
+			if (!supports.import)
 			{
 				buffer += "\n\n";
 				buffer += "module.exports = " + className + ";\n";
@@ -891,7 +891,7 @@ package com.mcleodgaming.as3js.parser
 			//Remaining fixes
 			buffer = buffer.replace(/(this\.)+/g, "this.");
 
-			if (isEntryPoint && injectedText.length && !this.supports.import) {
+			if (isEntryPoint && injectedText.length && !supports.import) {
 				buffer += "// Entry point module initializes all dependencies\n" + injectedText;
 			}
 
