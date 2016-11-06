@@ -632,7 +632,7 @@ package com.mcleodgaming.as3js.parser
 
 			var isEntryPoint:Boolean = !supports.ImportJS && (entry === resolveClassName(this)); 
 			//Create refs for all the other classes
-			if (!isEntryPoint && (imports.length > 0))
+			if (!supports.import && (imports.length > 0))
 			{
 				var tmpArr:Array = [];
 				for (i in imports)
@@ -647,7 +647,7 @@ package com.mcleodgaming.as3js.parser
 					}
 				}
 				//Join up separated by commas
-				if ((tmpArr.length > 0))
+				if ((tmpArr.length > 0) && !isEntryPoint)
 				{
 					buffer += varOrLet;
 					buffer += tmpArr.join(", ") + ";\n";
@@ -671,7 +671,7 @@ package com.mcleodgaming.as3js.parser
 							?"import ${name} from \"${path}/${name}\";\n"
 							:supports.ImportJS
 								?"${module} = module.import('${path}', '${name}');\n"
-								:"${module} = " + requireCall + "(\"${path}/${name}\")" + initClassCall + ";\n";
+								:(isEntryPoint ?varOrConst :"") + "${module} = " + requireCall + "(\"${path}/${name}\")" + initClassCall + ";\n";
 
 						var importPackageName:String = pkg.packageName;
 						var packagePath:String = supports.ImportJS
